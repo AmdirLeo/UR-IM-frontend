@@ -17,12 +17,12 @@ export const sendRegisterEmail = async (email: string) => {
   return response.data;
 };
 
-export const registerUser = async (data: any) => {
+export const registerUser = async (data: Record<string, unknown>) => {
   const response = await api.post('/user/register', data);
   return response.data;
 };
 
-export const loginUser = async (data: any) => {
+export const loginUser = async (data: Record<string, unknown>) => {
   const response = await api.post('/user/login', data);
   return response.data;
 };

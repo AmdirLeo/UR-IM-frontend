@@ -40,8 +40,9 @@ export const Auth: React.FC<AuthProps> = ({ onLoginSuccess }) => {
       await sendRegisterEmail(email);
       setSuccessMsg('Verification code sent to your email.');
       setEmailSent(true);
-    } catch (err: any) {
-      setError(err.response?.data?.detail?.[0]?.msg || err.response?.data?.msg || 'Failed to send verification code.');
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { detail?: { msg: string }[]; msg?: string } } };
+      setError(e.response?.data?.detail?.[0]?.msg || e.response?.data?.msg || 'Failed to send verification code.');
     } finally {
       setLoading(false);
     }
@@ -78,8 +79,9 @@ export const Auth: React.FC<AuthProps> = ({ onLoginSuccess }) => {
         // We only have the ID here, we pass it up
         onLoginSuccess(id, username);
       }
-    } catch (err: any) {
-      setError(err.response?.data?.detail?.[0]?.msg || err.response?.data?.msg || 'An error occurred.');
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { detail?: { msg: string }[]; msg?: string } } };
+      setError(e.response?.data?.detail?.[0]?.msg || e.response?.data?.msg || 'An error occurred.');
     } finally {
       setLoading(false);
     }
