@@ -1,13 +1,22 @@
 import React from 'react';
-import { User, MessageCircle, Users, Box, Folder, Aperture, Settings, LogOut, Smartphone } from 'lucide-react';
+import { User, MessageCircle, Users, Settings, LogOut } from 'lucide-react';
 
 interface SidebarProps {
   onLogout: () => void;
+  onOpenSettings: () => void;
 }
 
-export const Sidebar: React.FC<SidebarProps> = ({ onLogout }) => {
+export const Sidebar: React.FC<SidebarProps> = ({ onLogout, onOpenSettings }) => {
+  const handleLogoutClick = () => {
+    if (window.confirm('Are you sure you want to log out?')) {
+      if (window.confirm('Please confirm again that you want to log out.')) {
+        onLogout();
+      }
+    }
+  };
+
   return (
-    <div className="w-[60px] min-w-[60px] h-full bg-[#2a2a2a] flex flex-col items-center py-4 justify-between border-r border-gray-800 shrink-0">
+    <div className="w-[60px] min-w-[60px] h-full bg-[#2a2a2a] flex flex-col items-center py-4 justify-between border-r border-gray-800 shrink-0 z-10">
       {/* Top Icons */}
       <div className="flex flex-col items-center space-y-6">
         {/* Avatar */}
@@ -27,28 +36,15 @@ export const Sidebar: React.FC<SidebarProps> = ({ onLogout }) => {
         <div className="cursor-pointer group flex flex-col items-center w-full">
           <Users className="w-6 h-6 text-gray-400 group-hover:text-gray-200" />
         </div>
-
-        <div className="cursor-pointer group flex flex-col items-center w-full">
-          <Box className="w-6 h-6 text-gray-400 group-hover:text-gray-200" />
-        </div>
-
-        <div className="cursor-pointer group flex flex-col items-center w-full">
-          <Folder className="w-6 h-6 text-gray-400 group-hover:text-gray-200" />
-        </div>
-
-        <div className="cursor-pointer group flex flex-col items-center w-full">
-          <Aperture className="w-6 h-6 text-gray-400 group-hover:text-gray-200" />
-        </div>
-
       </div>
 
       {/* Bottom Icons */}
       <div className="flex flex-col items-center space-y-6 w-full">
-        <div className="cursor-pointer group flex flex-col items-center w-full relative">
-            <Smartphone className="w-6 h-6 text-gray-400 group-hover:text-gray-200" />
-        </div>
-
-        <div className="cursor-pointer group flex flex-col items-center w-full relative" title="Settings">
+        <div
+            className="cursor-pointer group flex flex-col items-center w-full relative"
+            title="Settings"
+            onClick={onOpenSettings}
+        >
             <Settings className="w-6 h-6 text-gray-400 group-hover:text-gray-200" />
              {/* Small red dot on settings */}
              <div className="absolute top-1 right-4 w-2 h-2 bg-red-500 rounded-full"></div>
@@ -56,7 +52,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ onLogout }) => {
 
         <div
             className="cursor-pointer group flex flex-col items-center w-full"
-            onClick={onLogout}
+            onClick={handleLogoutClick}
             title="Log Out"
         >
           <LogOut className="w-6 h-6 text-gray-400 hover:text-red-400" />
