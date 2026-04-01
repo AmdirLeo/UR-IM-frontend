@@ -15,6 +15,14 @@ function App() {
       setToken(savedToken);
       setIsAuthenticated(true);
     }
+
+    // Apply dark mode on load if saved
+    const savedTheme = localStorage.getItem('theme');
+    if (savedTheme === 'dark') {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
   }, []);
 
   const handleLoginSuccess = (id: string, name?: string) => {

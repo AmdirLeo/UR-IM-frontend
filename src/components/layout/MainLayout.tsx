@@ -1,8 +1,11 @@
 import React, { useState } from 'react';
-import { Sidebar } from './Sidebar';
-import { ChatList } from './ChatList';
+import { Sidebar, ViewMode } from './Sidebar';
+import { ChatList, dummyChats } from './ChatList';
 import { ChatPanel } from './ChatPanel';
+import { ContactList, dummyFriends, dummyGroups } from './ContactList';
+import { ContactDetail } from './ContactDetail';
 import { useWebSocket } from '../../hooks/useWebSocket';
+import { SettingsOverlay } from './SettingsOverlay';
 
 interface MainLayoutProps {
   currentUserId: string;
@@ -11,12 +14,19 @@ interface MainLayoutProps {
   onLogout: () => void;
 }
 
-import { SettingsOverlay } from './SettingsOverlay';
-
 export const MainLayout: React.FC<MainLayoutProps> = ({ currentUserId, token, onLogout }) => {
   const { isConnected, messages, sendMessage } = useWebSocket(token);
 
-  const [activeChatId, setActiveChatId] = useState<number>(2);
+  // View State
+  const [activeView, setActiveView] = useState<ViewMode>('messages');
+
+  // Messages State
+  const [activeChatId, setActiveChatId] = useState<number>(0);
+
+  // Contacts State
+  const [activeContactId, setActiveContactId] = useState<number | null>(null);
+
+  // Layout State
   const [chatListWidth, setChatListWidth] = useState<number>(300);
   const [isResizingList, setIsResizingList] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
@@ -52,19 +62,44 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ currentUserId, token, on
     };
   }, [isResizingList]);
 
+  // Derived state for ContactDetail
+  const activeContact =
+    dummyFriends.find(f => f.id === activeContactId) ||
+    dummyGroups.find(g => g.id === activeContactId);
+
+  const handleSendMessage = (contactId: number) => {
+    // In a real app, this might create a new chat or find an existing one
+    // For now, we mock it by switching to Messages view and setting the activeChatId
+    setActiveChatId(contactId);
+    setActiveView('messages');
+  };
+
   return (
     <div className="flex h-screen w-full bg-gray-100 dark:bg-[#111111] overflow-hidden font-sans relative">
       {showSettings && <SettingsOverlay onClose={() => setShowSettings(false)} />}
 
       {/* 1. Left Narrow Sidebar */}
-      <Sidebar onLogout={onLogout} onOpenSettings={() => setShowSettings(true)} />
-
-      {/* 2. Middle Chat List Sidebar */}
-      <ChatList
-        activeChatId={activeChatId}
-        onSelectChat={(id) => setActiveChatId(id)}
-        width={chatListWidth}
+      <Sidebar
+        activeView={activeView}
+        onNavigate={setActiveView}
+        onLogout={onLogout}
+        onOpenSettings={() => setShowSettings(true)}
       />
+
+      {/* 2. Middle List Area (Chats or Contacts) */}
+      {activeView === 'messages' ? (
+        <ChatList
+          activeChatId={activeChatId}
+          onSelectChat={(id) => setActiveChatId(id)}
+          width={chatListWidth}
+        />
+      ) : (
+        <ContactList
+          activeContactId={activeContactId}
+          onSelectContact={(id) => setActiveContactId(id)}
+          width={chatListWidth}
+        />
+      )}
 
       {/* Drag handle */}
       <div
@@ -72,14 +107,24 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ currentUserId, token, on
         onMouseDown={() => setIsResizingList(true)}
       />
 
-      {/* 3. Main Chat Panel */}
-      <ChatPanel
-        activeChatId={activeChatId}
-        currentUserId={currentUserId}
-        isConnected={isConnected}
-        messages={messages}
-        sendMessage={sendMessage}
-      />
+      {/* 3. Main Detail Area (Chat Panel or Profile Detail) */}
+      {activeView === 'messages' ? (
+        <ChatPanel
+          activeChatId={activeChatId}
+          activeChatName={dummyChats.find(c => c.id === activeChatId)?.name}
+          currentUserId={currentUserId}
+          isConnected={isConnected}
+          messages={messages}
+          sendMessage={sendMessage}
+        />
+      ) : (
+        <ContactDetail
+          contactId={activeContactId}
+          contactName={activeContact?.name}
+          avatarColor={activeContact?.avatarColor}
+          onSendMessage={handleSendMessage}
+        />
+      )}
     </div>
   );
 };

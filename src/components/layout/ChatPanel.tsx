@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { MoreHorizontal, Pin, Minus, Square, X, Smile, Folder, Scissors, MessageSquare, Phone, Video } from 'lucide-react';
+import { MoreHorizontal } from 'lucide-react';
 import { WSMessage } from '../../hooks/useWebSocket';
 
 interface ChatPanelProps {
@@ -10,8 +10,9 @@ interface ChatPanelProps {
   sendMessage: (receiverId: number, content: string, senderId: number) => void;
 }
 
-export const ChatPanel: React.FC<ChatPanelProps> = ({
+export const ChatPanel: React.FC<ChatPanelProps & { activeChatName?: string }> = ({
   activeChatId,
+  activeChatName,
   currentUserId,
   isConnected,
   messages,
@@ -19,6 +20,40 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
 }) => {
   const [inputText, setInputText] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  const [inputHeight, setInputHeight] = useState(120);
+  const [isResizingVertical, setIsResizingVertical] = useState(false);
+
+  // Resize handler for Chat Input Area
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isResizingVertical) return;
+      // Calculate height from bottom of screen
+      let newHeight = window.innerHeight - e.clientY;
+      if (newHeight < 100) newHeight = 100;
+      if (newHeight > window.innerHeight / 2) newHeight = window.innerHeight / 2;
+      setInputHeight(newHeight);
+    };
+
+    const handleMouseUp = () => {
+      setIsResizingVertical(false);
+    };
+
+    if (isResizingVertical) {
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
+      document.body.style.cursor = 'row-resize';
+      document.body.style.userSelect = 'none';
+    } else {
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    }
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isResizingVertical]);
 
   const handleSend = () => {
     if (!inputText.trim() || !isConnected) return;
@@ -40,22 +75,18 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
   }, [messages]);
 
   return (
-    <div className="flex-1 h-full bg-[#F5F5F5] flex flex-col min-w-[400px]">
+    <div className="flex-1 h-full bg-[#F5F5F5] dark:bg-[#111111] flex flex-col min-w-[400px]">
       {/* Header */}
-      <div className="h-[60px] flex items-center justify-between px-6 border-b border-gray-200 shrink-0">
+      <div className="h-[60px] flex items-center justify-between px-6 border-b border-gray-200 dark:border-gray-800 shrink-0">
         <div className="flex items-center">
-          <h2 className="text-xl font-medium text-black tracking-wide">
-            {activeChatId === 2 ? '霸王餐助手x2º @团推' : `User ID: ${activeChatId}`}
+          <h2 className="text-xl font-medium text-black dark:text-gray-100 tracking-wide">
+            {activeChatName || `User ID: ${activeChatId}`}
           </h2>
         </div>
 
         {/* Window controls (Mock) */}
-        <div className="flex items-center space-x-4 text-gray-500">
-          <Pin className="w-4 h-4 hover:text-gray-800 cursor-pointer" />
-          <Minus className="w-4 h-4 hover:text-gray-800 cursor-pointer" />
-          <Square className="w-4 h-4 hover:text-gray-800 cursor-pointer" />
-          <X className="w-4 h-4 hover:text-gray-800 cursor-pointer" />
-          <MoreHorizontal className="w-5 h-5 ml-2 hover:text-gray-800 cursor-pointer" />
+        <div className="flex items-center space-x-4 text-gray-500 dark:text-gray-400">
+          <MoreHorizontal className="w-5 h-5 ml-2 hover:text-gray-800 dark:hover:text-gray-200 cursor-pointer" />
         </div>
       </div>
 
@@ -85,15 +116,15 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
                    <div className="w-9 h-9 bg-blue-500 rounded flex-shrink-0 mr-3 mt-1" />
                 )}
 
-                <div className={`max-w-[70%] ${isMe ? 'bg-[#95EC69]' : 'bg-white'} rounded p-2.5 shadow-sm border ${isMe ? 'border-[#89D961]' : 'border-gray-200'} relative`}>
+                <div className={`max-w-[70%] ${isMe ? 'bg-[#95EC69] dark:bg-[#2B2B2B] dark:text-gray-200' : 'bg-white dark:bg-[#202020] dark:text-gray-200'} rounded p-2.5 shadow-sm border ${isMe ? 'border-[#89D961] dark:border-[#3A3A3A]' : 'border-gray-200 dark:border-[#333333]'} relative`}>
                     {/* Tiny triangle pointer */}
                     <div className={`absolute top-3 w-0 h-0 border-y-[6px] border-y-transparent ${
                       isMe
-                        ? 'right-[-6px] border-l-[6px] border-l-[#95EC69]'
-                        : 'left-[-6px] border-r-[6px] border-r-white'
+                        ? 'right-[-6px] border-l-[6px] border-l-[#95EC69] dark:border-l-[#2B2B2B]'
+                        : 'left-[-6px] border-r-[6px] border-r-white dark:border-r-[#202020]'
                     }`} />
 
-                    <p className="text-[#1A1A1A] text-[15px] leading-relaxed whitespace-pre-wrap word-break">
+                    <p className="text-[#1A1A1A] dark:text-gray-200 text-[15px] leading-relaxed whitespace-pre-wrap word-break">
                       {msg.content}
                     </p>
                 </div>
@@ -110,40 +141,35 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Input Area */}
-      <div className="h-[180px] bg-[#F5F5F5] border-t border-gray-200 flex flex-col shrink-0 px-4">
-        {/* Toolbar */}
-        <div className="flex items-center justify-between py-3">
-          <div className="flex items-center space-x-4 text-gray-500">
-            <Smile className="w-5 h-5 hover:text-gray-800 cursor-pointer transition-colors" />
-            <Folder className="w-5 h-5 hover:text-gray-800 cursor-pointer transition-colors" />
-            <Scissors className="w-5 h-5 hover:text-gray-800 cursor-pointer transition-colors" />
-            <MessageSquare className="w-5 h-5 hover:text-gray-800 cursor-pointer transition-colors" />
-          </div>
-          <div className="flex items-center space-x-4 text-gray-500">
-             <Phone className="w-5 h-5 hover:text-gray-800 cursor-pointer transition-colors" />
-             <Video className="w-5 h-5 hover:text-gray-800 cursor-pointer transition-colors" />
-          </div>
-        </div>
+      {/* Vertical Drag handle */}
+      <div
+        className="h-1 cursor-row-resize hover:bg-gray-300 dark:hover:bg-gray-700 active:bg-blue-500 transition-colors z-10 shrink-0"
+        onMouseDown={() => setIsResizingVertical(true)}
+      />
 
+      {/* Input Area */}
+      <div
+        style={{ height: `${inputHeight}px` }}
+        className="bg-[#F5F5F5] dark:bg-[#111111] border-t border-gray-200 dark:border-gray-800 flex flex-col shrink-0 px-4 pt-3 pb-3 transition-colors"
+      >
         {/* Text Area */}
         <textarea
-          className="flex-1 bg-transparent border-none outline-none resize-none text-[#1A1A1A] text-[15px]"
-          placeholder=""
+          className="flex-1 bg-transparent border-none outline-none resize-none text-[#1A1A1A] dark:text-gray-200 text-[15px]"
+          placeholder="Type a message..."
           value={inputText}
           onChange={(e) => setInputText(e.target.value)}
           onKeyDown={handleKeyDown}
         />
 
         {/* Send Button */}
-        <div className="flex justify-end py-3">
+        <div className="flex justify-end mt-2">
           <button
             onClick={handleSend}
             disabled={!inputText.trim()}
             className={`px-6 py-1.5 rounded text-[14px] font-medium transition-colors ${
               inputText.trim()
-                ? 'bg-[#E9E9E9] hover:bg-[#D2D2D2] text-[#07C160]'
-                : 'bg-[#F5F5F5] text-gray-400 border border-gray-200 cursor-not-allowed'
+                ? 'bg-[#E9E9E9] dark:bg-[#2B2B2B] hover:bg-[#D2D2D2] dark:hover:bg-[#3B3B3B] text-[#07C160] dark:text-[#07C160]'
+                : 'bg-[#F5F5F5] dark:bg-[#1A1A1A] text-gray-400 dark:text-gray-600 border border-gray-200 dark:border-[#333333] cursor-not-allowed'
             }`}
           >
             发送(S)
