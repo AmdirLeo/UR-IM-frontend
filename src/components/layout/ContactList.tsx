@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { Search, UserPlus, Users as UsersIcon } from 'lucide-react';
+import { Search, UserPlus, Users as UsersIcon, Plus } from 'lucide-react';
+import { AddFriendModal } from './AddFriendModal';
 
 interface ContactListProps {
   activeContactId: number | null;
@@ -24,6 +25,7 @@ export const dummyGroups = [
 export const ContactList: React.FC<ContactListProps> = ({ activeContactId, onSelectContact, width }) => {
   const [activeTab, setActiveTab] = useState<'friends' | 'groups'>('friends');
   const [searchTerm, setSearchTerm] = useState('');
+  const [isAddFriendModalOpen, setIsAddFriendModalOpen] = useState(false);
 
   const currentList = activeTab === 'friends' ? dummyFriends : dummyGroups;
 
@@ -33,8 +35,8 @@ export const ContactList: React.FC<ContactListProps> = ({ activeContactId, onSel
       className="h-full bg-[#EFEFEF] dark:bg-[#1A1A1A] border-r border-gray-300 dark:border-black flex flex-col relative shrink-0"
     >
       {/* Search Header */}
-      <div className="h-[60px] flex flex-col justify-center px-4 shrink-0 border-b border-gray-300 dark:border-gray-800">
-        <div className="relative w-full">
+      <div className="h-[60px] flex items-center px-4 shrink-0 border-b border-gray-300 dark:border-gray-800 space-x-2">
+        <div className="relative flex-1">
           <div className="absolute inset-y-0 left-0 pl-2 flex items-center pointer-events-none">
             <Search className="h-4 w-4 text-gray-500" />
           </div>
@@ -46,6 +48,13 @@ export const ContactList: React.FC<ContactListProps> = ({ activeContactId, onSel
             onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
+        <button
+          onClick={() => setIsAddFriendModalOpen(true)}
+          className="w-[30px] h-[30px] flex items-center justify-center bg-[#E2E2E2] hover:bg-[#D4D4D4] dark:bg-[#2A2A2A] dark:hover:bg-[#333333] rounded transition-colors flex-shrink-0 focus:outline-none"
+          title="Add Friend"
+        >
+          <Plus className="h-4 w-4 text-gray-600 dark:text-gray-400" />
+        </button>
       </div>
 
       {/* Fixed Requests Section */}
@@ -123,6 +132,11 @@ export const ContactList: React.FC<ContactListProps> = ({ activeContactId, onSel
           </div>
         ))}
       </div>
+
+      <AddFriendModal
+        isOpen={isAddFriendModalOpen}
+        onClose={() => setIsAddFriendModalOpen(false)}
+      />
     </div>
   );
 };

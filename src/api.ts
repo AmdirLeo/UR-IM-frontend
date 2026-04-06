@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 const api = axios.create({
-  baseURL: 'http://127.0.0.1:8000/api',
+  baseURL: import.meta.env.VITE_API_BASE_URL,
 });
 
 api.interceptors.request.use((config) => {
@@ -11,6 +11,18 @@ api.interceptors.request.use((config) => {
   }
   return config;
 });
+
+export interface RegisterData {
+  username: string;
+  email: string;
+  password: string;
+  verification_code: string;
+}
+
+export interface LoginData {
+  id: string;
+  password: string;
+}
 
 export const sendRegisterEmail = async (email: string) => {
   const response = await api.post('/user/register/email', { email });
@@ -29,6 +41,23 @@ export const loginUser = async (data: Record<string, unknown>) => {
 
 export const logoutUser = async () => {
   const response = await api.post('/user/logout');
+  return response.data;
+};
+
+// --- Friends API ---
+
+export const searchUsers = async (keyword: string, page = 1, size = 20) => {
+  const response = await api.get('/friend/friend/search', {
+    params: { keyword, page, size },
+  });
+  return response.data;
+};
+
+export const sendFriendRequest = async (target_user_id: number, message?: string) => {
+  const response = await api.post('/friend/friend/apply', {
+    target_user_id,
+    message,
+  });
   return response.data;
 };
 
