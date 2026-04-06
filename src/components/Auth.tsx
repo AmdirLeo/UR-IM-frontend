@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Mail, Lock, User, Hash, AlertCircle } from 'lucide-react';
 import { sendRegisterEmail, registerUser, loginUser } from '../api';
+import styles from './Auth.module.css';
 
 type AuthMode = 'login' | 'signup';
 
@@ -88,12 +89,12 @@ export const Auth: React.FC<AuthProps> = ({ onLoginSuccess }) => {
   };
 
   return (
-    <div className="w-full max-w-md bg-white rounded-lg shadow-md p-8">
-      <div className="text-center mb-8">
-        <h2 className="text-2xl font-bold text-gray-800">
+    <div className={styles.authCard}>
+      <div className={styles.headerContainer}>
+        <h2 className={styles.title}>
           {mode === 'login' ? 'Welcome Back' : 'Create Account'}
         </h2>
-        <p className="text-sm text-gray-500 mt-2">
+        <p className={styles.subtitle}>
           {mode === 'login'
             ? 'Sign in with your User ID and password'
             : 'Register a new account to get your User ID'}
@@ -101,34 +102,34 @@ export const Auth: React.FC<AuthProps> = ({ onLoginSuccess }) => {
       </div>
 
       {error && (
-        <div className="mb-4 p-3 bg-red-50 text-red-700 text-sm rounded-md flex items-center">
-          <AlertCircle className="w-4 h-4 mr-2" />
+        <div className={styles.errorAlert}>
+          <AlertCircle className={styles.alertIcon} />
           {error}
         </div>
       )}
 
       {successMsg && (
-        <div className="mb-4 p-3 bg-green-50 text-green-700 text-sm rounded-md flex items-center">
-          <AlertCircle className="w-4 h-4 mr-2" />
+        <div className={styles.successAlert}>
+          <AlertCircle className={styles.alertIcon} />
           {successMsg}
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <form onSubmit={handleSubmit} className={styles.formContainer}>
         {mode === 'signup' && (
           <>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Username</label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <User className="h-5 w-5 text-gray-400" />
+              <label className={styles.label}>Username</label>
+              <div className={styles.inputGroup}>
+                <div className={styles.iconContainer}>
+                  <User className={styles.icon} />
                 </div>
                 <input
                   type="text"
                   required
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
-                  className="pl-10 w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                  className={styles.input}
                   placeholder="johndoe"
                   minLength={3}
                   maxLength={20}
@@ -137,35 +138,35 @@ export const Auth: React.FC<AuthProps> = ({ onLoginSuccess }) => {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <Mail className="h-5 w-5 text-gray-400" />
+              <label className={styles.label}>Email</label>
+              <div className={styles.inputGroup}>
+                <div className={styles.iconContainer}>
+                  <Mail className={styles.icon} />
                 </div>
                 <input
                   type="email"
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="pl-10 w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                  className={styles.input}
                   placeholder="john@example.com"
                 />
               </div>
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Verification Code</label>
-              <div className="flex space-x-2">
-                <div className="relative flex-1">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <Hash className="h-5 w-5 text-gray-400" />
+              <label className={styles.label}>Verification Code</label>
+              <div className={styles.verificationRow}>
+                <div className={styles.verificationInputWrapper}>
+                  <div className={styles.iconContainer}>
+                    <Hash className={styles.icon} />
                   </div>
                   <input
                     type="text"
                     required
                     value={verificationCode}
                     onChange={(e) => setVerificationCode(e.target.value)}
-                    className="pl-10 w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                    className={styles.input}
                     placeholder="123456"
                   />
                 </div>
@@ -173,7 +174,7 @@ export const Auth: React.FC<AuthProps> = ({ onLoginSuccess }) => {
                   type="button"
                   onClick={handleSendCode}
                   disabled={loading || emailSent}
-                  className="px-4 py-2 bg-gray-100 text-gray-700 border border-gray-300 rounded-md hover:bg-gray-200 disabled:opacity-50 text-sm whitespace-nowrap"
+                  className={styles.getCodeBtn}
                 >
                   {emailSent ? 'Sent' : 'Get Code'}
                 </button>
@@ -184,17 +185,17 @@ export const Auth: React.FC<AuthProps> = ({ onLoginSuccess }) => {
 
         {mode === 'login' && (
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">User ID</label>
-            <div className="relative">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <User className="h-5 w-5 text-gray-400" />
+            <label className={styles.label}>User ID</label>
+            <div className={styles.inputGroup}>
+              <div className={styles.iconContainer}>
+                <User className={styles.icon} />
               </div>
               <input
                 type="text"
                 required
                 value={id}
                 onChange={(e) => setId(e.target.value)}
-                className="pl-10 w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                className={styles.input}
                 placeholder="1"
               />
             </div>
@@ -202,17 +203,17 @@ export const Auth: React.FC<AuthProps> = ({ onLoginSuccess }) => {
         )}
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
-          <div className="relative">
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <Lock className="h-5 w-5 text-gray-400" />
+          <label className={styles.label}>Password</label>
+          <div className={styles.inputGroup}>
+            <div className={styles.iconContainer}>
+              <Lock className={styles.icon} />
             </div>
             <input
               type="password"
               required
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="pl-10 w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+              className={styles.input}
               placeholder="••••••••"
               minLength={6}
               maxLength={50}
@@ -223,19 +224,19 @@ export const Auth: React.FC<AuthProps> = ({ onLoginSuccess }) => {
         <button
           type="submit"
           disabled={loading}
-          className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
+          className={styles.submitBtn}
         >
           {loading ? 'Processing...' : mode === 'login' ? 'Sign In' : 'Sign Up'}
         </button>
       </form>
 
-      <div className="mt-6 text-center">
+      <div className={styles.footerContainer}>
         <button
           onClick={() => {
             setMode(mode === 'login' ? 'signup' : 'login');
             resetMessages();
           }}
-          className="text-sm text-blue-600 hover:text-blue-500"
+          className={styles.toggleModeBtn}
         >
           {mode === 'login'
             ? "Don't have an account? Sign up"
