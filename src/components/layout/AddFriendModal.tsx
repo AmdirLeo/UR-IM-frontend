@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Search, X, UserPlus, Loader2 } from 'lucide-react';
-import { searchUsers, sendFriendRequest } from '../../api';
+import { searchUsers, sendFriendRequest } from '../../friend';
 
 interface AddFriendModalProps {
   isOpen: boolean;
@@ -39,8 +39,9 @@ export const AddFriendModal: React.FC<AddFriendModalProps> = ({ isOpen, onClose 
       } else {
         setError(response.msg || 'Search failed');
       }
-    } catch (err: any) {
-      setError(err.response?.data?.detail?.[0]?.msg || err.response?.data?.msg || 'Failed to search users.');
+    } catch (err: unknown) {
+      const error = err as { response?: { data?: { detail?: { msg: string }[]; msg?: string } } };
+      setError(error.response?.data?.detail?.[0]?.msg || error.response?.data?.msg || 'Failed to search users.');
     } finally {
       setLoading(false);
     }
@@ -59,9 +60,10 @@ export const AddFriendModal: React.FC<AddFriendModalProps> = ({ isOpen, onClose 
         setRequestStatus(prev => ({ ...prev, [targetUserId]: 'error' }));
         setError(response.msg || 'Failed to send request');
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const error = err as { response?: { data?: { detail?: { msg: string }[]; msg?: string } } };
       setRequestStatus(prev => ({ ...prev, [targetUserId]: 'error' }));
-      setError(err.response?.data?.detail?.[0]?.msg || err.response?.data?.msg || 'Failed to send friend request.');
+      setError(error.response?.data?.detail?.[0]?.msg || error.response?.data?.msg || 'Failed to send friend request.');
     }
   };
 

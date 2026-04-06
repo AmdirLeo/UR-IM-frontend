@@ -1,0 +1,90 @@
+.contactList {
+    @apply h-full bg-[#EFEFEF] border-r border-gray-300 flex flex-col relative shrink-0;
+}
+:global(.dark) .contactList {
+    @apply bg-[#1A1A1A] border-black;
+}
+
+.searchHeader {
+    @apply h-[60px] flex items-center px-4 shrink-0 border-b border-gray-300 space-x-2;
+}
+:global(.dark) .searchHeader {
+    @apply border-gray-800;
+}
+
+.searchInput {
+    @apply w-full bg-[#E2E2E2] rounded text-sm pl-8 pr-2 py-1.5 focus:outline-none focus:bg-white focus:ring-1 focus:ring-gray-300 transition-colors;
+}
+:global(.dark) .searchInput {
+    @apply bg-[#2A2A2A] text-gray-300 focus:bg-[#111111];
+}
+
+.addButton {
+    @apply w-[30px] h-[30px] flex items-center justify-center bg-[#E2E2E2] hover:bg-[#D4D4D4] rounded transition-colors flex-shrink-0 focus:outline-none;
+}
+:global(.dark) .addButton {
+    @apply bg-[#2A2A2A] hover:bg-[#333333];
+}
+
+.requestsSection {
+    @apply flex flex-col border-b border-gray-300 shrink-0;
+}
+:global(.dark) .requestsSection {
+    @apply border-gray-800;
+}
+
+.requestItem {
+    @apply flex items-center px-4 py-3 cursor-pointer hover:bg-[#DCDCDC] transition-colors;
+}
+:global(.dark) .requestItem {
+    @apply hover:bg-[#242424];
+}
+
+.tabs {
+    @apply flex border-b border-gray-300 shrink-0;
+}
+:global(.dark) .tabs {
+    @apply border-gray-800;
+}
+
+.tabButton {
+    @apply flex-1 py-2 text-sm font-medium transition-colors text-gray-600 hover:text-gray-900;
+}
+:global(.dark) .tabButton {
+    @apply text-gray-400 hover:text-gray-200;
+}
+
+.tabButtonActive {
+    @apply text-green-600 border-b-2 border-green-600;
+}
+:global(.dark) .tabButtonActive {
+    @apply text-green-500 border-green-500;
+}
+
+.contactItem {
+    @apply flex items-center px-4 py-3 cursor-pointer hover:bg-[#DCDCDC];
+}
+:global(.dark) .contactItem {
+    @apply hover:bg-[#242424];
+}
+
+.contactItemActive {
+    @apply bg-[#C6C6C6];
+}
+:global(.dark) .contactItemActive {
+    @apply bg-[#2C2C2C];
+}
+
+.contactName {
+    @apply text-[15px] truncate font-normal text-gray-900;
+}
+:global(.dark) .contactName {
+    @apply text-gray-300;
+}
+
+.contactNameActive {
+    @apply text-black;
+}
+:global(.dark) .contactNameActive {
+    @apply text-white;
+}

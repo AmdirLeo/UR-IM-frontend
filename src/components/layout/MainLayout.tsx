@@ -64,8 +64,8 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ currentUserId, token, on
 
   // Derived state for ContactDetail
   const activeContact =
-    dummyFriends.find(f => f.id === activeContactId) ||
-    dummyGroups.find(g => g.id === activeContactId);
+    dummyFriends.find((f: { id: number; name: string; avatarColor: string; }) => f.id === activeContactId) ||
+    dummyGroups.find((g: { id: number; name: string; avatarColor: string; }) => g.id === activeContactId);
 
   const handleSendMessage = (contactId: number) => {
     // In a real app, this might create a new chat or find an existing one
@@ -111,7 +111,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ currentUserId, token, on
       {activeView === 'messages' ? (
         <ChatPanel
           activeChatId={activeChatId}
-          activeChatName={dummyChats.find(c => c.id === activeChatId)?.name}
+          activeChatName={dummyChats.find((c: { id: number; name: string; avatarColor: string; isMuted: boolean; time: string; unread: number; }) => c.id === activeChatId)?.name}
           currentUserId={currentUserId}
           isConnected={isConnected}
           messages={messages}

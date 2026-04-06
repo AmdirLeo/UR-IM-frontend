@@ -1,5 +1,7 @@
-import React from 'react';
-import { MessageSquare } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { MessageSquare, Trash2 } from 'lucide-react';
+import { getFriendList, FriendInfo, removeFriend } from '../../friend';
+import styles from './ContactDetail.module.css';
 
 interface ContactDetailProps {
   contactId: number | null;
@@ -14,10 +16,54 @@ export const ContactDetail: React.FC<ContactDetailProps> = ({
   avatarColor,
   onSendMessage
 }) => {
+  const [friendDetails, setFriendDetails] = useState<FriendInfo | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [removing, setRemoving] = useState(false);
+
+  useEffect(() => {
+    const fetchDetails = async () => {
+      if (contactId) {
+        setLoading(true);
+        try {
+          const response = await getFriendList();
+          if (response.code === 200) {
+             const friend = response.data.find((f: FriendInfo) => f.user_id === contactId);
+             if (friend) {
+               setFriendDetails(friend);
+             } else {
+               setFriendDetails(null);
+             }
+          }
+        } catch (error) {
+          console.error("Failed to fetch friend details", error);
+        } finally {
+          setLoading(false);
+        }
+      }
+    };
+    fetchDetails();
+  }, [contactId]);
+
+  const handleRemoveFriend = async () => {
+    if (!contactId) return;
+    if (window.confirm('Are you sure you want to remove this friend?')) {
+      setRemoving(true);
+      try {
+        await removeFriend(contactId);
+        // We'd ideally need a way to notify the parent to clear selection and refresh list
+        alert('Friend removed successfully. Please refresh the page or click a different contact.');
+      } catch (error) {
+        console.error("Failed to remove friend", error);
+        alert('Failed to remove friend');
+      } finally {
+        setRemoving(false);
+      }
+    }
+  };
 
   if (!contactId || !contactName) {
     return (
-      <div className="flex-1 h-full bg-[#F5F5F5] dark:bg-[#111111] flex items-center justify-center min-w-[400px]">
+      <div className={styles.contactDetail}>
         <div className="text-gray-400 dark:text-gray-500">
           Select a contact to view their profile
         </div>
@@ -26,8 +72,8 @@ export const ContactDetail: React.FC<ContactDetailProps> = ({
   }
 
   return (
-    <div className="flex-1 h-full bg-[#F5F5F5] dark:bg-[#111111] flex flex-col items-center justify-center min-w-[400px]">
-      <div className="flex flex-col items-center bg-white dark:bg-[#1E1E1E] p-10 rounded-2xl shadow-sm border border-gray-100 dark:border-[#333333] min-w-[320px]">
+    <div className={styles.contactDetail}>
+      <div className={styles.detailCard}>
 
         {/* Large Avatar */}
         <div className={`w-24 h-24 rounded-lg overflow-hidden flex items-center justify-center mb-6 shadow-md ${avatarColor || 'bg-gray-400'}`}>
@@ -40,18 +86,46 @@ export const ContactDetail: React.FC<ContactDetailProps> = ({
         <h2 className="text-2xl font-medium text-gray-900 dark:text-white mb-2">
           {contactName}
         </h2>
-        <p className="text-sm text-gray-500 dark:text-gray-400 mb-8">
+        <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">
           User ID: {contactId}
         </p>
+
+        {loading ? (
+           <p className="text-sm text-gray-400 mb-6">Loading details...</p>
+        ) : friendDetails ? (
+           <div className="mb-8 flex flex-col items-center">
+             <p className="text-xs text-gray-400">Added: {new Date(friendDetails.created_at).toLocaleDateString()}</p>
+             {friendDetails.tags && friendDetails.tags.length > 0 && (
+                <div className={styles.tagContainer}>
+                  {friendDetails.tags.map(tag => (
+                     <span key={tag} className={styles.tag}>{tag}</span>
+                  ))}
+                </div>
+             )}
+           </div>
+        ) : (
+           <div className="mb-8"></div>
+        )}
 
         {/* Action Button */}
         <button
           onClick={() => onSendMessage(contactId)}
-          className="flex items-center justify-center space-x-2 w-full py-3 px-6 bg-[#07C160] hover:bg-[#06AD56] text-white rounded-md font-medium transition-colors shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#07C160] dark:focus:ring-offset-[#1E1E1E]"
+          className={styles.actionButton}
         >
           <MessageSquare className="w-5 h-5" />
           <span>Send Message</span>
         </button>
+
+        {friendDetails && (
+          <button
+            onClick={handleRemoveFriend}
+            disabled={removing}
+            className={styles.removeButton}
+          >
+            <Trash2 className="w-4 h-4" />
+            <span>{removing ? 'Removing...' : 'Remove Friend'}</span>
+          </button>
+        )}
 
       </div>
     </div>

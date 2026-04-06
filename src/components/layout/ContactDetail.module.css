@@ -1,0 +1,38 @@
+.contactDetail {
+  @apply flex-1 h-full bg-[#F5F5F5] flex flex-col items-center justify-center min-w-[400px];
+}
+:global(.dark) .contactDetail {
+  @apply bg-[#111111];
+}
+
+.detailCard {
+  @apply flex flex-col items-center bg-white p-10 rounded-2xl shadow-sm border border-gray-100 min-w-[320px];
+}
+:global(.dark) .detailCard {
+  @apply bg-[#1E1E1E] border-[#333333];
+}
+
+.actionButton {
+  @apply flex items-center justify-center space-x-2 w-full py-3 px-6 bg-[#07C160] hover:bg-[#06AD56] text-white rounded-md font-medium transition-colors shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#07C160];
+}
+:global(.dark) .actionButton {
+  @apply focus:ring-offset-[#1E1E1E];
+}
+
+.removeButton {
+  @apply flex items-center justify-center space-x-2 w-full py-2 px-6 mt-4 text-red-500 bg-red-50 hover:bg-red-100 rounded-md font-medium transition-colors focus:outline-none;
+}
+:global(.dark) .removeButton {
+  @apply bg-red-900/20 hover:bg-red-900/40 text-red-400;
+}
+
+.tagContainer {
+  @apply flex flex-wrap gap-2 mt-4 w-full justify-center;
+}
+
+.tag {
+  @apply px-2 py-1 bg-gray-100 text-gray-700 rounded-full text-xs;
+}
+:global(.dark) .tag {
+  @apply bg-gray-800 text-gray-300;
+}
