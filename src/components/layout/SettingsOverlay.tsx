@@ -28,13 +28,13 @@ export const SettingsOverlay: React.FC<SettingsOverlayProps> = ({ onClose }) => 
 
   return (
     <div className="absolute inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-      <div className="bg-white dark:bg-[#2A2A2A] rounded-lg shadow-xl w-full max-w-md overflow-hidden flex flex-col">
+      <div className="bg-primary rounded-lg shadow-xl w-full max-w-md overflow-hidden flex flex-col">
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-          <h2 className="text-lg font-medium text-gray-900 dark:text-gray-100">Settings</h2>
+        <div className="flex items-center justify-between px-6 py-4 border-b border-primary">
+          <h2 className="text-lg font-medium text-secondary">Settings</h2>
           <button
             onClick={onClose}
-            className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+            className="text-secondary hover:text-secondary dark:hover:text-secondary"
           >
             <X className="w-5 h-5" />
           </button>
@@ -46,9 +46,9 @@ export const SettingsOverlay: React.FC<SettingsOverlayProps> = ({ onClose }) => 
 
             {/* Appearance Section */}
             <div>
-              <h3 className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-4">Appearance</h3>
+              <h3 className="text-sm font-medium text-secondary mb-4">Appearance</h3>
               <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-600 dark:text-gray-400">Dark Mode</span>
+                <span className="text-sm text-secondary">Dark Mode</span>
                 <button
                   onClick={toggleDarkMode}
                   className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
@@ -56,7 +56,7 @@ export const SettingsOverlay: React.FC<SettingsOverlayProps> = ({ onClose }) => 
                   }`}
                 >
                   <span
-                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                    className={`inline-block h-4 w-4 transform rounded-full bg-primary transition-transform ${
                       isDarkMode ? 'translate-x-6' : 'translate-x-1'
                     }`}
                   />
@@ -65,21 +65,21 @@ export const SettingsOverlay: React.FC<SettingsOverlayProps> = ({ onClose }) => 
                       <Moon className="w-3 h-3 text-white" />
                   </span>
                   <span className={`absolute right-1 ${isDarkMode ? 'opacity-0' : 'opacity-100'} transition-opacity`}>
-                      <Sun className="w-3 h-3 text-gray-500" />
+                      <Sun className="w-3 h-3 text-secondary" />
                   </span>
                 </button>
               </div>
             </div>
 
-            <hr className="border-gray-200 dark:border-gray-700" />
+            <hr className="border-primary" />
 
             {/* Other Mock Settings */}
             <div>
-              <h3 className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-4">Notifications</h3>
+              <h3 className="text-sm font-medium text-secondary mb-4">Notifications</h3>
               <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-600 dark:text-gray-400">Sound</span>
+                <span className="text-sm text-secondary">Sound</span>
                 <button className="relative inline-flex h-6 w-11 items-center rounded-full bg-blue-600">
-                  <span className="inline-block h-4 w-4 transform rounded-full bg-white translate-x-6" />
+                  <span className="inline-block h-4 w-4 transform rounded-full bg-primary translate-x-6" />
                 </button>
               </div>
             </div>

@@ -1,3 +1,12 @@
+@import './styles/colors.css';
+@import './styles/typography.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-primary text-primary font-sans text-base;
+  }
+}

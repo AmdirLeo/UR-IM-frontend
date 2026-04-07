@@ -1,57 +1,57 @@
 .contactList {
-    @apply h-full bg-[#EFEFEF] border-r border-gray-300 flex flex-col relative shrink-0;
+    @apply h-full bg-secondary border-r border-primary flex flex-col relative shrink-0;
 }
 :global(.dark) .contactList {
-    @apply bg-[#1A1A1A] border-black;
+    @apply bg-secondary border-black;
 }
 
 .searchHeader {
-    @apply h-[60px] flex items-center px-4 shrink-0 border-b border-gray-300 space-x-2;
+    @apply h-[60px] flex items-center px-4 shrink-0 border-b border-primary space-x-2;
 }
 :global(.dark) .searchHeader {
-    @apply border-gray-800;
+    @apply border-primary;
 }
 
 .searchInput {
-    @apply w-full bg-[#E2E2E2] rounded text-sm pl-8 pr-2 py-1.5 focus:outline-none focus:bg-white focus:ring-1 focus:ring-gray-300 transition-colors;
+    @apply w-full bg-secondary rounded text-sm pl-8 pr-2 py-1.5 focus:outline-none focus:bg-primary focus:ring-1 focus:ring-gray-300 transition-colors;
 }
 :global(.dark) .searchInput {
-    @apply bg-[#2A2A2A] text-gray-300 focus:bg-[#111111];
+    @apply bg-secondary text-secondary focus:bg-secondary;
 }
 
 .addButton {
-    @apply w-[30px] h-[30px] flex items-center justify-center bg-[#E2E2E2] hover:bg-[#D4D4D4] rounded transition-colors flex-shrink-0 focus:outline-none;
+    @apply w-[30px] h-[30px] flex items-center justify-center bg-secondary hover:bg-secondary rounded transition-colors flex-shrink-0 focus:outline-none;
 }
 :global(.dark) .addButton {
-    @apply bg-[#2A2A2A] hover:bg-[#333333];
+    @apply bg-secondary hover:bg-secondary;
 }
 
 .requestsSection {
-    @apply flex flex-col border-b border-gray-300 shrink-0;
+    @apply flex flex-col border-b border-primary shrink-0;
 }
 :global(.dark) .requestsSection {
-    @apply border-gray-800;
+    @apply border-primary;
 }
 
 .requestItem {
-    @apply flex items-center px-4 py-3 cursor-pointer hover:bg-[#DCDCDC] transition-colors;
+    @apply flex items-center px-4 py-3 cursor-pointer hover:bg-secondary transition-colors;
 }
 :global(.dark) .requestItem {
-    @apply hover:bg-[#242424];
+    @apply hover:bg-secondary;
 }
 
 .tabs {
-    @apply flex border-b border-gray-300 shrink-0;
+    @apply flex border-b border-primary shrink-0;
 }
 :global(.dark) .tabs {
-    @apply border-gray-800;
+    @apply border-primary;
 }
 
 .tabButton {
-    @apply flex-1 py-2 text-sm font-medium transition-colors text-gray-600 hover:text-gray-900;
+    @apply flex-1 py-2 text-sm font-medium transition-colors text-secondary hover:text-secondary;
 }
 :global(.dark) .tabButton {
-    @apply text-gray-400 hover:text-gray-200;
+    @apply text-secondary hover:text-secondary;
 }
 
 .tabButtonActive {
@@ -62,24 +62,24 @@
 }
 
 .contactItem {
-    @apply flex items-center px-4 py-3 cursor-pointer hover:bg-[#DCDCDC];
+    @apply flex items-center px-4 py-3 cursor-pointer hover:bg-secondary;
 }
 :global(.dark) .contactItem {
-    @apply hover:bg-[#242424];
+    @apply hover:bg-secondary;
 }
 
 .contactItemActive {
-    @apply bg-[#C6C6C6];
+    @apply bg-secondary;
 }
 :global(.dark) .contactItemActive {
-    @apply bg-[#2C2C2C];
+    @apply bg-secondary;
 }
 
 .contactName {
-    @apply text-[15px] truncate font-normal text-gray-900;
+    @apply text-base truncate font-normal text-secondary;
 }
 :global(.dark) .contactName {
-    @apply text-gray-300;
+    @apply text-secondary;
 }
 
 .contactNameActive {

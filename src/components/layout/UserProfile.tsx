@@ -51,9 +51,11 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onClose }) => {
       // Clear password fields on success
       setOldPassword('');
       setNewPassword('');
-    } catch (error: any) {
-      const errorMessage = error.response?.data?.detail?.[0]?.msg || error.response?.data?.detail || 'Failed to update profile.';
-      setBasicInfoStatus({ type: 'error', message: errorMessage });
+    } catch (err: unknown) {
+      const error = err as { response?: { data?: { detail?: Array<{ msg: string }> | string } }; message?: string };
+      const detail = error.response?.data?.detail;
+      const errorMessage = Array.isArray(detail) ? detail[0]?.msg : (detail || 'Failed to update profile.');
+      setBasicInfoStatus({ type: 'error', message: errorMessage as string });
     }
   };
 
@@ -76,9 +78,11 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onClose }) => {
       setEmailStatus({ type: 'success', message: 'Email updated successfully!' });
       setEmailPassword('');
       setNewEmail('');
-    } catch (error: any) {
-      const errorMessage = error.response?.data?.detail?.[0]?.msg || error.response?.data?.detail || 'Failed to update email.';
-      setEmailStatus({ type: 'error', message: errorMessage });
+    } catch (err: unknown) {
+      const error = err as { response?: { data?: { detail?: Array<{ msg: string }> | string } }; message?: string };
+      const detail = error.response?.data?.detail;
+      const errorMessage = Array.isArray(detail) ? detail[0]?.msg : (detail || 'Failed to update email.');
+      setEmailStatus({ type: 'error', message: errorMessage as string });
     }
   };
 
@@ -158,9 +162,11 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onClose }) => {
       reader.readAsDataURL(resizedFile);
 
       setPortraitStatus({ type: 'success', message: 'Portrait updated successfully!' });
-    } catch (error: any) {
-      const errorMessage = error.response?.data?.detail?.[0]?.msg || error.response?.data?.detail || error.message || 'Failed to update portrait.';
-      setPortraitStatus({ type: 'error', message: errorMessage });
+    } catch (err: unknown) {
+      const error = err as { response?: { data?: { detail?: Array<{ msg: string }> | string } }; message?: string };
+      const detail = error.response?.data?.detail;
+      const errorMessage = Array.isArray(detail) ? detail[0]?.msg : (detail || error.message || 'Failed to update portrait.');
+      setPortraitStatus({ type: 'error', message: errorMessage as string });
     }
   };
 
@@ -184,7 +190,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onClose }) => {
                 {portraitPreview ? (
                   <img src={portraitPreview} alt="Preview" className="w-full h-full object-cover" />
                 ) : (
-                  <div className="w-full h-full bg-gray-700 flex items-center justify-center text-gray-400">
+                  <div className="w-full h-full bg-gray-700 flex items-center justify-center text-secondary">
                     No Image
                   </div>
                 )}

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Search, X, UserPlus, Loader2 } from 'lucide-react';
-import { searchUsers, sendFriendRequest } from '../../friend';
+import { searchUsers, sendFriendRequest } from '../../api/friend';
 
 interface AddFriendModalProps {
   isOpen: boolean;
@@ -69,28 +69,28 @@ export const AddFriendModal: React.FC<AddFriendModalProps> = ({ isOpen, onClose 
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm">
-      <div className="bg-white dark:bg-[#1A1A1A] w-[450px] max-w-full rounded-xl shadow-xl flex flex-col max-h-[80vh] overflow-hidden">
+      <div className="bg-primary w-[450px] max-w-full rounded-xl shadow-xl flex flex-col max-h-[80vh] overflow-hidden">
 
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200 dark:border-gray-800 shrink-0">
-          <h2 className="text-lg font-medium text-gray-900 dark:text-gray-100">Add Friend</h2>
+        <div className="flex items-center justify-between px-5 py-4 border-b border-primary shrink-0">
+          <h2 className="text-lg font-medium text-secondary">Add Friend</h2>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors focus:outline-none"
+            className="text-secondary hover:text-secondary dark:hover:text-secondary transition-colors focus:outline-none"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Search Input */}
-        <div className="p-5 shrink-0 bg-gray-50 dark:bg-[#111111] border-b border-gray-200 dark:border-gray-800">
+        <div className="p-5 shrink-0 bg-secondary border-b border-primary">
           <form onSubmit={handleSearch} className="relative flex items-center">
             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <Search className="h-4 w-4 text-gray-400" />
+              <Search className="h-4 w-4 text-secondary" />
             </div>
             <input
               type="text"
-              className="w-full bg-white dark:bg-[#2A2A2A] border border-gray-300 dark:border-gray-700 text-gray-900 dark:text-gray-100 rounded-md py-2 pl-10 pr-12 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all"
+              className="w-full bg-primary border border-primary text-secondary rounded-md py-2 pl-10 pr-12 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all"
               placeholder="Search by username..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
@@ -110,13 +110,13 @@ export const AddFriendModal: React.FC<AddFriendModalProps> = ({ isOpen, onClose 
         {/* Results List */}
         <div className="flex-1 overflow-y-auto p-2 min-h-[300px]">
           {loading ? (
-            <div className="flex flex-col items-center justify-center h-full text-gray-500 dark:text-gray-400">
+            <div className="flex flex-col items-center justify-center h-full text-secondary">
               <Loader2 className="w-6 h-6 animate-spin mb-2" />
               <span>Searching...</span>
             </div>
           ) : results.length > 0 ? (
             results.map((user) => (
-              <div key={user.user_id} className="flex flex-col p-3 hover:bg-gray-50 dark:hover:bg-[#2A2A2A] rounded-lg transition-colors border-b border-gray-100 dark:border-gray-800 last:border-0">
+              <div key={user.user_id} className="flex flex-col p-3 hover:bg-gray-50 dark:hover:bg-secondary rounded-lg transition-colors border-b border-primary last:border-0">
                 <div className="flex items-center justify-between">
 
                   {/* User Info */}
@@ -127,10 +127,10 @@ export const AddFriendModal: React.FC<AddFriendModalProps> = ({ isOpen, onClose 
                       </span>
                     </div>
                     <div className="flex flex-col min-w-0">
-                      <span className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
+                      <span className="text-sm font-medium text-secondary truncate">
                         {user.username}
                       </span>
-                      <span className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                      <span className="text-xs text-secondary truncate">
                         ID: {user.user_id}
                       </span>
                     </div>
@@ -145,14 +145,14 @@ export const AddFriendModal: React.FC<AddFriendModalProps> = ({ isOpen, onClose 
                     ) : selectedUserId === user.user_id ? (
                       <button
                         onClick={() => setSelectedUserId(null)}
-                        className="text-xs text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 px-2 py-1"
+                        className="text-xs text-secondary hover:text-secondary dark:hover:text-secondary px-2 py-1"
                       >
                         Cancel
                       </button>
                     ) : (
                       <button
                         onClick={() => setSelectedUserId(user.user_id)}
-                        className="flex items-center space-x-1 bg-gray-100 hover:bg-gray-200 dark:bg-[#333333] dark:hover:bg-[#444444] text-gray-700 dark:text-gray-200 px-3 py-1.5 rounded text-xs font-medium transition-colors"
+                        className="flex items-center space-x-1 bg-gray-100 hover:bg-secondary dark:hover:bg-secondary text-secondary px-3 py-1.5 rounded text-xs font-medium transition-colors"
                       >
                         <UserPlus className="w-3.5 h-3.5" />
                         <span>Add</span>
@@ -163,9 +163,9 @@ export const AddFriendModal: React.FC<AddFriendModalProps> = ({ isOpen, onClose 
 
                 {/* Message Input Dropdown */}
                 {selectedUserId === user.user_id && requestStatus[user.user_id] !== 'sent' && (
-                  <div className="mt-3 bg-gray-50 dark:bg-[#222222] p-3 rounded border border-gray-200 dark:border-gray-700">
+                  <div className="mt-3 bg-secondary p-3 rounded border border-primary">
                     <textarea
-                      className="w-full bg-white dark:bg-[#1A1A1A] border border-gray-300 dark:border-gray-600 rounded text-sm p-2 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-1 focus:ring-green-500 resize-none h-16"
+                      className="w-full bg-primary border border-primary rounded text-sm p-2 text-secondary focus:outline-none focus:ring-1 focus:ring-green-500 resize-none h-16"
                       placeholder="Hi, I'm..."
                       value={requestMessage}
                       onChange={(e) => setRequestMessage(e.target.value)}
@@ -189,14 +189,14 @@ export const AddFriendModal: React.FC<AddFriendModalProps> = ({ isOpen, onClose 
               </div>
             ))
           ) : searchTerm && !loading && !error ? (
-             <div className="flex flex-col items-center justify-center h-full text-gray-500 dark:text-gray-400 p-6 text-center">
-              <div className="bg-gray-100 dark:bg-[#222222] p-4 rounded-full mb-3">
-                <Search className="w-6 h-6 text-gray-400" />
+             <div className="flex flex-col items-center justify-center h-full text-secondary p-6 text-center">
+              <div className="bg-secondary p-4 rounded-full mb-3">
+                <Search className="w-6 h-6 text-secondary" />
               </div>
               <p className="text-sm">No users found for "{searchTerm}"</p>
             </div>
           ) : (
-            <div className="flex flex-col items-center justify-center h-full text-gray-400 dark:text-gray-500 p-6 text-center">
+            <div className="flex flex-col items-center justify-center h-full text-secondary p-6 text-center">
                <UserPlus className="w-12 h-12 mb-3 opacity-20" />
                <p className="text-sm">Search by username to find friends to add</p>
             </div>

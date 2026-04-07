@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Search, UserPlus, Users as UsersIcon, Plus } from 'lucide-react';
 import { AddFriendModal } from './AddFriendModal';
-import { getFriendList, FriendInfo } from '../../friend';
+import { getFriendList, FriendInfo } from '../../api/friend';
 import styles from './ContactList.module.css';
 
 interface ContactListProps {
@@ -73,7 +73,7 @@ export const ContactList: React.FC<ContactListProps> = ({ activeContactId, onSel
       <div className={styles.searchHeader}>
         <div className="relative flex-1">
           <div className="absolute inset-y-0 left-0 pl-2 flex items-center pointer-events-none">
-            <Search className="h-4 w-4 text-gray-500" />
+            <Search className="h-4 w-4 text-secondary" />
           </div>
           <input
             type="text"
@@ -88,7 +88,7 @@ export const ContactList: React.FC<ContactListProps> = ({ activeContactId, onSel
           className={styles.addButton}
           title="Add Friend"
         >
-          <Plus className="h-4 w-4 text-gray-600 dark:text-gray-400" />
+          <Plus className="h-4 w-4 text-secondary" />
         </button>
       </div>
 
@@ -98,13 +98,13 @@ export const ContactList: React.FC<ContactListProps> = ({ activeContactId, onSel
             <div className="w-10 h-10 rounded bg-orange-400 flex items-center justify-center mr-3 text-white">
               <UserPlus className="w-5 h-5" />
             </div>
-            <span className="text-[15px] text-gray-900 dark:text-gray-200">Friend Requests (好友申请)</span>
+            <span className="text-base text-secondary">Friend Requests (好友申请)</span>
          </div>
          <div className={styles.requestItem}>
             <div className="w-10 h-10 rounded bg-blue-500 flex items-center justify-center mr-3 text-white">
               <UsersIcon className="w-5 h-5" />
             </div>
-            <span className="text-[15px] text-gray-900 dark:text-gray-200">Group Requests (群聊申请)</span>
+            <span className="text-base text-secondary">Group Requests (群聊申请)</span>
          </div>
       </div>
 
@@ -126,12 +126,12 @@ export const ContactList: React.FC<ContactListProps> = ({ activeContactId, onSel
 
       {/* List */}
       <div className="flex-1 overflow-y-auto custom-scrollbar pt-2">
-        <div className="px-4 pb-2 text-xs text-gray-500 dark:text-gray-400 font-medium">
+        <div className="px-4 pb-2 text-xs text-secondary font-medium">
           {activeTab === 'friends' ? 'My Friends' : 'My Groups'}
         </div>
 
         {loading && activeTab === 'friends' ? (
-          <div className="p-4 text-center text-sm text-gray-500">Loading...</div>
+          <div className="p-4 text-center text-sm text-secondary">Loading...</div>
         ) : (
           currentList.map((contact) => {
             const isGroup = activeTab === 'groups';

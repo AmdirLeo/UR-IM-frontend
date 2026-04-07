@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { MessageSquare, Trash2 } from 'lucide-react';
-import { getFriendList, FriendInfo, removeFriend } from '../../friend';
+import { getFriendList, FriendInfo, removeFriend } from '../../api/friend';
 import styles from './ContactDetail.module.css';
 
 interface ContactDetailProps {
@@ -64,7 +64,7 @@ export const ContactDetail: React.FC<ContactDetailProps> = ({
   if (!contactId || !contactName) {
     return (
       <div className={styles.contactDetail}>
-        <div className="text-gray-400 dark:text-gray-500">
+        <div className="text-secondary">
           Select a contact to view their profile
         </div>
       </div>
@@ -83,18 +83,18 @@ export const ContactDetail: React.FC<ContactDetailProps> = ({
         </div>
 
         {/* Profile Info */}
-        <h2 className="text-2xl font-medium text-gray-900 dark:text-white mb-2">
+        <h2 className="text-2xl font-medium text-primary mb-2">
           {contactName}
         </h2>
-        <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">
+        <p className="text-sm text-secondary mb-2">
           User ID: {contactId}
         </p>
 
         {loading ? (
-           <p className="text-sm text-gray-400 mb-6">Loading details...</p>
+           <p className="text-sm text-secondary mb-6">Loading details...</p>
         ) : friendDetails ? (
            <div className="mb-8 flex flex-col items-center">
-             <p className="text-xs text-gray-400">Added: {new Date(friendDetails.created_at).toLocaleDateString()}</p>
+             <p className="text-xs text-secondary">Added: {new Date(friendDetails.created_at).toLocaleDateString()}</p>
              {friendDetails.tags && friendDetails.tags.length > 0 && (
                 <div className={styles.tagContainer}>
                   {friendDetails.tags.map(tag => (

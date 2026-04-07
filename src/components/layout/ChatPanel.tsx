@@ -75,18 +75,18 @@ export const ChatPanel: React.FC<ChatPanelProps & { activeChatName?: string }> =
   }, [messages]);
 
   return (
-    <div className="flex-1 h-full bg-[#F5F5F5] dark:bg-[#111111] flex flex-col min-w-[400px]">
+    <div className="flex-1 h-full bg-primary flex flex-col min-w-[400px]">
       {/* Header */}
-      <div className="h-[60px] flex items-center justify-between px-6 border-b border-gray-200 dark:border-gray-800 shrink-0">
+      <div className="h-[60px] flex items-center justify-between px-6 border-b border-primary shrink-0">
         <div className="flex items-center">
-          <h2 className="text-xl font-medium text-black dark:text-gray-100 tracking-wide">
+          <h2 className="text-xl font-medium text-primary tracking-wide">
             {activeChatName || `User ID: ${activeChatId}`}
           </h2>
         </div>
 
         {/* Window controls (Mock) */}
-        <div className="flex items-center space-x-4 text-gray-500 dark:text-gray-400">
-          <MoreHorizontal className="w-5 h-5 ml-2 hover:text-gray-800 dark:hover:text-gray-200 cursor-pointer" />
+        <div className="flex items-center space-x-4 text-secondary">
+          <MoreHorizontal className="w-5 h-5 ml-2 hover:text-primary cursor-pointer" />
         </div>
       </div>
 
@@ -94,7 +94,7 @@ export const ChatPanel: React.FC<ChatPanelProps & { activeChatName?: string }> =
       <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
         {messages.length === 0 ? (
            <div className="flex justify-center mt-10">
-             <span className="text-xs bg-gray-200 text-gray-500 px-3 py-1 rounded">No messages yet.</span>
+             <span className="text-xs bg-secondary text-secondary px-3 py-1 rounded">No messages yet.</span>
            </div>
         ) : (
           messages.map((msg, idx) => {
@@ -103,7 +103,7 @@ export const ChatPanel: React.FC<ChatPanelProps & { activeChatName?: string }> =
             if (msg.type === 'system') {
               return (
                 <div key={idx} className="flex justify-center my-4">
-                  <span className="text-xs bg-gray-200 text-gray-500 px-3 py-1 rounded">
+                  <span className="text-xs bg-secondary text-secondary px-3 py-1 rounded">
                     {msg.message}
                   </span>
                 </div>
@@ -116,7 +116,7 @@ export const ChatPanel: React.FC<ChatPanelProps & { activeChatName?: string }> =
                    <div className="w-9 h-9 bg-blue-500 rounded flex-shrink-0 mr-3 mt-1" />
                 )}
 
-                <div className={`max-w-[70%] ${isMe ? 'bg-[#95EC69] dark:bg-[#2B2B2B] dark:text-gray-200' : 'bg-white dark:bg-[#202020] dark:text-gray-200'} rounded p-2.5 shadow-sm border ${isMe ? 'border-[#89D961] dark:border-[#3A3A3A]' : 'border-gray-200 dark:border-[#333333]'} relative`}>
+                <div className={`max-w-[70%] ${isMe ? 'bg-bubble-self text-primary' : 'bg-bubble-other text-primary'} rounded p-2.5 shadow-sm border ${isMe ? 'border-primary' : 'border-primary'} relative`}>
                     {/* Tiny triangle pointer */}
                     <div className={`absolute top-3 w-0 h-0 border-y-[6px] border-y-transparent ${
                       isMe
@@ -124,7 +124,7 @@ export const ChatPanel: React.FC<ChatPanelProps & { activeChatName?: string }> =
                         : 'left-[-6px] border-r-[6px] border-r-white dark:border-r-[#202020]'
                     }`} />
 
-                    <p className="text-[#1A1A1A] dark:text-gray-200 text-[15px] leading-relaxed whitespace-pre-wrap word-break">
+                    <p className="text-primary text-base leading-relaxed whitespace-pre-wrap word-break">
                       {msg.content}
                     </p>
                 </div>
@@ -150,11 +150,11 @@ export const ChatPanel: React.FC<ChatPanelProps & { activeChatName?: string }> =
       {/* Input Area */}
       <div
         style={{ height: `${inputHeight}px` }}
-        className="bg-[#F5F5F5] dark:bg-[#111111] border-t border-gray-200 dark:border-gray-800 flex flex-col shrink-0 px-4 pt-3 pb-3 transition-colors"
+        className="bg-primary border-t border-primary flex flex-col shrink-0 px-4 pt-3 pb-3 transition-colors"
       >
         {/* Text Area */}
         <textarea
-          className="flex-1 bg-transparent border-none outline-none resize-none text-[#1A1A1A] dark:text-gray-200 text-[15px]"
+          className="flex-1 bg-transparent border-none outline-none resize-none text-primary text-base"
           placeholder="Type a message..."
           value={inputText}
           onChange={(e) => setInputText(e.target.value)}
@@ -168,8 +168,8 @@ export const ChatPanel: React.FC<ChatPanelProps & { activeChatName?: string }> =
             disabled={!inputText.trim()}
             className={`px-6 py-1.5 rounded text-[14px] font-medium transition-colors ${
               inputText.trim()
-                ? 'bg-[#E9E9E9] dark:bg-[#2B2B2B] hover:bg-[#D2D2D2] dark:hover:bg-[#3B3B3B] text-[#07C160] dark:text-[#07C160]'
-                : 'bg-[#F5F5F5] dark:bg-[#1A1A1A] text-gray-400 dark:text-gray-600 border border-gray-200 dark:border-[#333333] cursor-not-allowed'
+                ? 'bg-secondary hover:bg-hover text-success'
+                : 'bg-secondary text-secondary border border-primary cursor-not-allowed'
             }`}
           >
             发送(S)

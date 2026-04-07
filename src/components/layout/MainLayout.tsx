@@ -76,7 +76,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ currentUserId, token, on
   };
 
   return (
-    <div className="flex h-screen w-full bg-gray-100 dark:bg-[#111111] overflow-hidden font-sans relative">
+    <div className="flex h-screen w-full bg-primary overflow-hidden font-sans relative">
       {showSettings && <SettingsOverlay onClose={() => setShowSettings(false)} />}
 
       {/* 1. Left Narrow Sidebar */}
