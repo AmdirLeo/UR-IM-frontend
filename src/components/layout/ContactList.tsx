@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Search, UserPlus, Users as UsersIcon, Plus } from 'lucide-react';
 import { AddFriendModal } from './AddFriendModal';
-import { getFriendList, FriendInfo } from '../../api/friend';
 import styles from './ContactList.module.css';
+import { FriendInfo, getFriendList } from '../../api/friend';
 
 interface ContactListProps {
   activeContactId: number | null;
@@ -67,7 +67,7 @@ export const ContactList: React.FC<ContactListProps> = ({ activeContactId, onSel
   return (
     <div
       style={{ width: `${width}px`, minWidth: '200px' }}
-      className={styles.contactList}
+      className={styles.container}
     >
       {/* Search Header */}
       <div className={styles.searchHeader}>
@@ -85,7 +85,7 @@ export const ContactList: React.FC<ContactListProps> = ({ activeContactId, onSel
         </div>
         <button
           onClick={() => setIsAddFriendModalOpen(true)}
-          className={styles.addButton}
+          className={styles.addBtn}
           title="Add Friend"
         >
           <Plus className="h-4 w-4 text-secondary" />
@@ -95,29 +95,33 @@ export const ContactList: React.FC<ContactListProps> = ({ activeContactId, onSel
       {/* Fixed Requests Section */}
       <div className={styles.requestsSection}>
          <div className={styles.requestItem}>
-            <div className="w-10 h-10 rounded bg-orange-400 flex items-center justify-center mr-3 text-white">
-              <UserPlus className="w-5 h-5" />
+            <div className={styles.friendRequestIconWrapper}>
+              <UserPlus className={styles.requestIcon} />
             </div>
             <span className="text-base text-secondary">Friend Requests (好友申请)</span>
          </div>
          <div className={styles.requestItem}>
-            <div className="w-10 h-10 rounded bg-blue-500 flex items-center justify-center mr-3 text-white">
-              <UsersIcon className="w-5 h-5" />
+            <div className={styles.groupRequestIconWrapper}>
+              <UsersIcon className={styles.requestIcon} />
             </div>
             <span className="text-base text-secondary">Group Requests (群聊申请)</span>
          </div>
       </div>
 
       {/* Tabs */}
-      <div className={styles.tabs}>
+      <div className={styles.tabsContainer}>
         <button
-          className={`${styles.tabButton} ${activeTab === 'friends' ? styles.tabButtonActive : ''}`}
+          className={`${styles.tab} ${
+            activeTab === 'friends' ? styles.tabActive : styles.tabInactive
+          }`}
           onClick={() => setActiveTab('friends')}
         >
           Friends
         </button>
         <button
-          className={`${styles.tabButton} ${activeTab === 'groups' ? styles.tabButtonActive : ''}`}
+          className={`${styles.tab} ${
+            activeTab === 'groups' ? styles.tabActive : styles.tabInactive
+          }`}
           onClick={() => setActiveTab('groups')}
         >
           Groups

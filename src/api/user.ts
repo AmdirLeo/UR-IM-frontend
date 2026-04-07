@@ -29,3 +29,8 @@ export const editUserPortrait = async (file: File) => {
   const response = await api.put('/user/edit/portrait', formData);
   return response.data;
 };
+
+export const deleteUserAccount = async () => {
+  const response = await api.post('/user/delete');
+  return response.data;
+};

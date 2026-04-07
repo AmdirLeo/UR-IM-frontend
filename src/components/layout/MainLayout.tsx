@@ -88,7 +88,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ currentUserId, token, on
       />
 
       {activeView === 'profile' ? (
-        <UserProfile onClose={() => setActiveView('messages')} currentUserId={currentUserId} />
+        <UserProfile onClose={() => setActiveView('messages')} currentUserId={currentUserId} onLogout={onLogout} />
       ) : (
         <>
           {/* 2. Middle List Area (Chats or Contacts) */}

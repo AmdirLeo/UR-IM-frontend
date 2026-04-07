@@ -1,15 +1,16 @@
 import React, { useState, useRef } from 'react';
-import { X, Upload } from 'lucide-react';
+import { X, Upload, AlertTriangle } from 'lucide-react';
 import styles from './UserProfile.module.css';
-import { editUserProfile, editUserEmail, editUserPortrait } from '../../api/user';
+import { editUserProfile, editUserEmail, editUserPortrait, deleteUserAccount } from '../../api/user';
 import { UserEdit, EmailEdit } from '../../api/user';
 
 interface UserProfileProps {
   onClose: () => void;
   currentUserId: string;
+  onLogout: () => void;
 }
 
-export const UserProfile: React.FC<UserProfileProps> = ({ onClose }) => {
+export const UserProfile: React.FC<UserProfileProps> = ({ onClose, onLogout }) => {
   // Basic Info State
   const [userName, setUserName] = useState('');
   const [oldPassword, setOldPassword] = useState('');
@@ -27,6 +28,10 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onClose }) => {
   const [portraitFile, setPortraitFile] = useState<File | null>(null);
   const [portraitPreview, setPortraitPreview] = useState<string | null>(() => localStorage.getItem('userAvatar'));
   const [portraitStatus, setPortraitStatus] = useState<{ type: 'success' | 'error' | null, message: string }>({ type: null, message: '' });
+
+  // Delete Account State
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleteStatus, setDeleteStatus] = useState<{ type: 'success' | 'error' | null, message: string }>({ type: null, message: '' });
 
   const handleBasicInfoSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -95,6 +100,23 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onClose }) => {
         setPortraitPreview(reader.result as string);
       };
       reader.readAsDataURL(file);
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    setDeleteStatus({ type: null, message: '' });
+    try {
+      const response = await deleteUserAccount();
+      if (response.code === 200) {
+        onLogout();
+      } else {
+        setDeleteStatus({ type: 'error', message: response.msg || 'Failed to delete account.' });
+      }
+    } catch (err: unknown) {
+      const error = err as { response?: { data?: { detail?: Array<{ msg: string }> | string } }; message?: string };
+      const detail = error.response?.data?.detail;
+      const errorMessage = Array.isArray(detail) ? detail[0]?.msg : (detail || 'Failed to delete account.');
+      setDeleteStatus({ type: 'error', message: errorMessage as string });
     }
   };
 
@@ -320,7 +342,63 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onClose }) => {
           </form>
         </section>
 
+        {/* Danger Zone Section */}
+        <section className={`${styles.section} border-red-500/30`}>
+          <h3 className={`${styles.sectionTitle} text-red-500 border-red-500/20`}>Danger Zone</h3>
+          <div className="flex items-center justify-between mt-4">
+            <div>
+              <h4 className="text-sm font-medium text-secondary">Delete Account</h4>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                Once you delete your account, there is no going back. Please be certain.
+              </p>
+            </div>
+            <button
+              onClick={() => setShowDeleteModal(true)}
+              className={styles.deleteBtn}
+            >
+              Delete Account
+            </button>
+          </div>
+        </section>
+
       </div>
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteModal && (
+        <div className={styles.modalOverlay}>
+          <div className={styles.modalContent}>
+            <div className="flex items-center gap-3 mb-4 text-red-500">
+              <AlertTriangle className="w-6 h-6" />
+              <h3 className="text-lg font-semibold">Delete Account</h3>
+            </div>
+            <p className="text-secondary mb-6">
+              This action is irreversible. All your data will be permanently deleted. Are you sure you want to proceed?
+            </p>
+            {deleteStatus.message && (
+              <p className={styles.errorMsg + ' mb-4'}>
+                {deleteStatus.message}
+              </p>
+            )}
+            <div className="flex justify-end gap-3 mt-6">
+              <button
+                onClick={() => {
+                  setShowDeleteModal(false);
+                  setDeleteStatus({ type: null, message: '' });
+                }}
+                className={styles.cancelBtn}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDeleteAccount}
+                className={styles.confirmDeleteBtn}
+              >
+                Confirm Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
