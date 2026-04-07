@@ -6,6 +6,7 @@ import { ContactList, dummyFriends, dummyGroups } from './ContactList';
 import { ContactDetail } from './ContactDetail';
 import { useWebSocket } from '../../hooks/useWebSocket';
 import { SettingsOverlay } from './SettingsOverlay';
+import { UserProfile } from './UserProfile';
 
 interface MainLayoutProps {
   currentUserId: string;
@@ -86,44 +87,50 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ currentUserId, token, on
         onOpenSettings={() => setShowSettings(true)}
       />
 
-      {/* 2. Middle List Area (Chats or Contacts) */}
-      {activeView === 'messages' ? (
-        <ChatList
-          activeChatId={activeChatId}
-          onSelectChat={(id) => setActiveChatId(id)}
-          width={chatListWidth}
-        />
+      {activeView === 'profile' ? (
+        <UserProfile onClose={() => setActiveView('messages')} currentUserId={currentUserId} />
       ) : (
-        <ContactList
-          activeContactId={activeContactId}
-          onSelectContact={(id) => setActiveContactId(id)}
-          width={chatListWidth}
-        />
-      )}
+        <>
+          {/* 2. Middle List Area (Chats or Contacts) */}
+          {activeView === 'messages' ? (
+            <ChatList
+              activeChatId={activeChatId}
+              onSelectChat={(id) => setActiveChatId(id)}
+              width={chatListWidth}
+            />
+          ) : (
+            <ContactList
+              activeContactId={activeContactId}
+              onSelectContact={(id) => setActiveContactId(id)}
+              width={chatListWidth}
+            />
+          )}
 
-      {/* Drag handle */}
-      <div
-        className="w-1 cursor-col-resize hover:bg-gray-300 dark:hover:bg-gray-700 active:bg-blue-500 z-10 transition-colors"
-        onMouseDown={() => setIsResizingList(true)}
-      />
+          {/* Drag handle */}
+          <div
+            className="w-1 cursor-col-resize hover:bg-gray-300 dark:hover:bg-gray-700 active:bg-blue-500 z-10 transition-colors"
+            onMouseDown={() => setIsResizingList(true)}
+          />
 
-      {/* 3. Main Detail Area (Chat Panel or Profile Detail) */}
-      {activeView === 'messages' ? (
-        <ChatPanel
-          activeChatId={activeChatId}
-          activeChatName={dummyChats.find((c: { id: number; name: string; avatarColor: string; isMuted: boolean; time: string; unread: number; }) => c.id === activeChatId)?.name}
-          currentUserId={currentUserId}
-          isConnected={isConnected}
-          messages={messages}
-          sendMessage={sendMessage}
-        />
-      ) : (
-        <ContactDetail
-          contactId={activeContactId}
-          contactName={activeContact?.name}
-          avatarColor={activeContact?.avatarColor}
-          onSendMessage={handleSendMessage}
-        />
+          {/* 3. Main Detail Area (Chat Panel or Profile Detail) */}
+          {activeView === 'messages' ? (
+            <ChatPanel
+              activeChatId={activeChatId}
+              activeChatName={dummyChats.find((c: { id: number; name: string; avatarColor: string; isMuted: boolean; time: string; unread: number; }) => c.id === activeChatId)?.name}
+              currentUserId={currentUserId}
+              isConnected={isConnected}
+              messages={messages}
+              sendMessage={sendMessage}
+            />
+          ) : (
+            <ContactDetail
+              contactId={activeContactId}
+              contactName={activeContact?.name}
+              avatarColor={activeContact?.avatarColor}
+              onSendMessage={handleSendMessage}
+            />
+          )}
+        </>
       )}
     </div>
   );

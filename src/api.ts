@@ -12,6 +12,16 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response && error.response.status === 401) {
+      alert('Login timeout. Please log in again.');
+    }
+    return Promise.reject(error);
+  }
+);
+
 export interface RegisterData {
   username: string;
   email: string;

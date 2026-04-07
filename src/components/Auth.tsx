@@ -38,8 +38,9 @@ export const Auth: React.FC<AuthProps> = ({ onLoginSuccess }) => {
     resetMessages();
     setLoading(true);
     try {
-      await sendRegisterEmail(email);
-      setSuccessMsg('Verification code sent to your email.');
+      const data = await sendRegisterEmail(email);
+      const code = data?.verification_code;
+      setSuccessMsg(code ? `Verification code: ${code}` : 'Verification code sent to your email.');
       setEmailSent(true);
     } catch (err: unknown) {
       const e = err as { response?: { data?: { detail?: { msg: string }[]; msg?: string } } };

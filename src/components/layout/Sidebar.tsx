@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { User, MessageCircle, Users, Settings, LogOut } from 'lucide-react';
 
-export type ViewMode = 'messages' | 'contacts';
+export type ViewMode = 'messages' | 'contacts' | 'profile';
 
 interface SidebarProps {
   activeView: ViewMode;
@@ -18,6 +18,22 @@ export const Sidebar: React.FC<SidebarProps> = ({
 }) => {
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const logoutRef = useRef<HTMLDivElement>(null);
+  const [avatarSrc, setAvatarSrc] = useState<string | null>(null);
+
+  // Sync avatar from local storage
+  useEffect(() => {
+    const updateAvatar = () => {
+      const cachedAvatar = localStorage.getItem('userAvatar');
+      setAvatarSrc(cachedAvatar);
+    };
+
+    updateAvatar();
+
+    window.addEventListener('avatarUpdated', updateAvatar);
+    return () => {
+      window.removeEventListener('avatarUpdated', updateAvatar);
+    };
+  }, []);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -37,8 +53,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
       {/* Top Icons */}
       <div className="flex flex-col items-center space-y-6">
         {/* Avatar */}
-        <div className="w-10 h-10 bg-gray-300 rounded overflow-hidden flex items-center justify-center cursor-pointer hover:opacity-80 transition-opacity">
-          <User className="text-gray-600 w-8 h-8 mt-2" />
+        <div
+          className="w-10 h-10 bg-gray-300 rounded overflow-hidden flex items-center justify-center cursor-pointer hover:opacity-80 transition-opacity border-2 border-transparent hover:border-[#1AAD19]"
+          onClick={() => onNavigate('profile')}
+          title="Profile"
+        >
+          {avatarSrc ? (
+            <img src={avatarSrc} alt="Avatar" className="w-full h-full object-cover" />
+          ) : (
+            <User className="text-gray-600 w-8 h-8 mt-2" />
+          )}
         </div>
 
         {/* Nav Icons */}
