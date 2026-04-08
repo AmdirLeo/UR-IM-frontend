@@ -67,7 +67,7 @@ export const ContactList: React.FC<ContactListProps> = ({ activeContactId, onSel
   return (
     <div
       style={{ width: `${width}px`, minWidth: '200px' }}
-      className={styles.container}
+      className={styles.contactList}
     >
       {/* Search Header */}
       <div className={styles.searchHeader}>
@@ -85,7 +85,7 @@ export const ContactList: React.FC<ContactListProps> = ({ activeContactId, onSel
         </div>
         <button
           onClick={() => setIsAddFriendModalOpen(true)}
-          className={styles.addBtn}
+          className={styles.addButton}
           title="Add Friend"
         >
           <Plus className="h-4 w-4 text-secondary" />
@@ -95,24 +95,24 @@ export const ContactList: React.FC<ContactListProps> = ({ activeContactId, onSel
       {/* Fixed Requests Section */}
       <div className={styles.requestsSection}>
          <div className={styles.requestItem}>
-            <div className={styles.friendRequestIconWrapper}>
-              <UserPlus className={styles.requestIcon} />
+            <div className="w-10 h-10 rounded overflow-hidden flex-shrink-0 mr-3 bg-orange-400 flex items-center justify-center">
+              <UserPlus className="h-5 w-5 text-white" />
             </div>
             <span className="text-base text-secondary">Friend Requests (好友申请)</span>
          </div>
          <div className={styles.requestItem}>
-            <div className={styles.groupRequestIconWrapper}>
-              <UsersIcon className={styles.requestIcon} />
+            <div className="w-10 h-10 rounded overflow-hidden flex-shrink-0 mr-3 bg-green-500 flex items-center justify-center">
+              <UsersIcon className="h-5 w-5 text-white" />
             </div>
             <span className="text-base text-secondary">Group Requests (群聊申请)</span>
          </div>
       </div>
 
       {/* Tabs */}
-      <div className={styles.tabsContainer}>
+      <div className={styles.tabs}>
         <button
           className={`${styles.tab} ${
-            activeTab === 'friends' ? styles.tabActive : styles.tabInactive
+            activeTab === 'friends' ? styles.tabActive : styles.tabButton
           }`}
           onClick={() => setActiveTab('friends')}
         >
@@ -120,7 +120,7 @@ export const ContactList: React.FC<ContactListProps> = ({ activeContactId, onSel
         </button>
         <button
           className={`${styles.tab} ${
-            activeTab === 'groups' ? styles.tabActive : styles.tabInactive
+            activeTab === 'groups' ? styles.tabActive : styles.tabButton
           }`}
           onClick={() => setActiveTab('groups')}
         >

@@ -27,14 +27,14 @@
 }
 
 .requestsSection {
-    @apply flex flex-col border-b border-primary shrink-0;
+    @apply flex flex-col border-b border-primary shrink-0 py-2;
 }
 :global(.dark) .requestsSection {
     @apply border-primary;
 }
 
 .requestItem {
-    @apply flex items-center px-4 py-3 cursor-pointer hover:bg-secondary transition-colors;
+    @apply flex items-center px-4 py-3 cursor-pointer hover:bg-secondary transition-colors my-1;
 }
 :global(.dark) .requestItem {
     @apply hover:bg-secondary;
@@ -54,11 +54,12 @@
     @apply text-secondary hover:text-secondary;
 }
 
-.tabButtonActive {
-    @apply text-green-600 border-b-2 border-green-600;
+.tab {
+  @apply flex-1 py-2 text-sm font-medium transition-colors;
 }
-:global(.dark) .tabButtonActive {
-    @apply text-green-500 border-green-500;
+
+.tabActive {
+  @apply text-green-600 dark:text-green-500 border-b-2 border-green-600 dark:border-green-500;
 }
 
 .contactItem {
@@ -83,8 +84,9 @@
 }
 
 .contactNameActive {
-    @apply text-black;
+  @apply text-black dark:text-white;
 }
-:global(.dark) .contactNameActive {
-    @apply text-white;
+
+.contactNameInactive {
+  @apply text-gray-900 dark:text-gray-300;
 }
