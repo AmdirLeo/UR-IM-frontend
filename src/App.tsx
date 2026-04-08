@@ -51,7 +51,7 @@ function App() {
 
   if (!isAuthenticated) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-gray-100 text-gray-900 px-4">
+      <div className="flex items-center justify-center min-h-screen bg-primary text-primary px-4">
         <Auth onLoginSuccess={handleLoginSuccess} />
       </div>
     );

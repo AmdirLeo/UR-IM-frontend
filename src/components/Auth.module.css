@@ -1,5 +1,5 @@
 .authCard {
-  @apply w-full max-w-md bg-white rounded-lg shadow-md p-8;
+  @apply w-full max-w-md bg-primary rounded-lg shadow-md p-8;
 }
 
 .headerContainer {
@@ -7,11 +7,11 @@
 }
 
 .title {
-  @apply text-2xl font-bold text-gray-800;
+  @apply text-2xl font-bold text-primary;
 }
 
 .subtitle {
-  @apply text-sm text-gray-500 mt-2;
+  @apply text-sm text-secondary mt-2;
 }
 
 .errorAlert {
@@ -35,7 +35,7 @@
 }
 
 .label {
-  @apply block text-sm font-medium text-gray-700 mb-1;
+  @apply block text-sm font-medium text-primary mb-1;
 }
 
 .iconContainer {
@@ -43,11 +43,11 @@
 }
 
 .icon {
-  @apply h-5 w-5 text-gray-400;
+  @apply h-5 w-5 text-tertiary;
 }
 
 .input {
-  @apply pl-10 w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500;
+  @apply pl-10 w-full p-2 border border-primary rounded-md focus:ring-blue-500 focus:border-blue-500;
 }
 
 .verificationRow {
@@ -59,7 +59,7 @@
 }
 
 .getCodeBtn {
-  @apply px-4 py-2 bg-gray-100 text-gray-700 border border-gray-300 rounded-md hover:bg-gray-200 disabled:opacity-50 text-sm whitespace-nowrap;
+  @apply px-4 py-2 bg-secondary text-primary border border-primary rounded-md hover:bg-hover disabled:opacity-50 text-sm whitespace-nowrap;
 }
 
 .submitBtn {
