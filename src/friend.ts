@@ -1,4 +1,5 @@
-import api from './api';
+import api from '../api';
+import { formatAvatarUrl } from '../utils/url';
 
 // --- Interfaces ---
 
@@ -72,7 +73,20 @@ export const searchUsers = async (keyword: string, page = 1, size = 20) => {
   const response = await api.get('/friend/friend/search', {
     params: { keyword, page, size },
   });
-  return response.data;
+  const data = response.data;
+  if (data && data.data && Array.isArray(data.data.results)) {
+    return {
+      ...data,
+      data: {
+        ...data.data,
+        results: data.data.results.map((user: SearchUserResponse) => ({
+          ...user,
+          avatar_url: formatAvatarUrl(user.avatar_url),
+        })),
+      },
+    };
+  }
+  return data;
 };
 
 export const sendFriendRequest = async (target_user_id: number, message?: string) => {
@@ -98,7 +112,17 @@ export const removeFriend = async (friend_user_id: number) => {
 
 export const getFriendList = async () => {
   const response = await api.get('/friend/friend');
-  return response.data;
+  const data = response.data;
+  if (data && Array.isArray(data.data)) {
+    return {
+      ...data,
+      data: data.data.map((friend: FriendInfo) => ({
+        ...friend,
+        avatar_url: formatAvatarUrl(friend.avatar_url),
+      })),
+    };
+  }
+  return data;
 };
 
 export const createFriendTag = async (name: string) => {
@@ -121,7 +145,17 @@ export const addFriendToTag = async (name: string, friend_user_ids: number[]) =>
 
 export const queryFriendsByTag = async (name: string) => {
   const response = await api.post('/friend/friend/tag/query', { name });
-  return response.data;
+  const data = response.data;
+  if (data && Array.isArray(data.data)) {
+    return {
+      ...data,
+      data: data.data.map((friend: FriendInfo) => ({
+        ...friend,
+        avatar_url: formatAvatarUrl(friend.avatar_url),
+      })),
+    };
+  }
+  return data;
 };
 
 export const removeFriendFromTag = async (name: string, friend_user_ids: number[]) => {

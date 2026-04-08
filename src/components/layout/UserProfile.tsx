@@ -1,8 +1,9 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useContext, useEffect } from 'react';
 import { X, Upload, AlertTriangle } from 'lucide-react';
 import styles from './UserProfile.module.css';
 import { editUserProfile, editUserEmail, editUserPortrait, deleteUserAccount } from '../../api/user';
 import { UserEdit, EmailEdit } from '../../api/user';
+import { UserContext } from '../../context/UserContext';
 
 interface UserProfileProps {
   onClose: () => void;
@@ -11,6 +12,10 @@ interface UserProfileProps {
 }
 
 export const UserProfile: React.FC<UserProfileProps> = ({ onClose, onLogout }) => {
+  const userContext = useContext(UserContext);
+  const userInfo = userContext?.userInfo;
+  const fetchUserInfo = userContext?.fetchUserInfo;
+
   // Basic Info State
   const [userName, setUserName] = useState('');
   const [oldPassword, setOldPassword] = useState('');
@@ -26,12 +31,21 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onClose, onLogout }) =
   // Portrait State
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [portraitFile, setPortraitFile] = useState<File | null>(null);
-  const [portraitPreview, setPortraitPreview] = useState<string | null>(() => localStorage.getItem('userAvatar'));
+  const [portraitPreview, setPortraitPreview] = useState<string | null>(null);
   const [portraitStatus, setPortraitStatus] = useState<{ type: 'success' | 'error' | null, message: string }>({ type: null, message: '' });
 
   // Delete Account State
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteStatus, setDeleteStatus] = useState<{ type: 'success' | 'error' | null, message: string }>({ type: null, message: '' });
+
+  // Populate data from context when mounted or updated
+  useEffect(() => {
+    if (userInfo) {
+      setUserName(userInfo.username || '');
+      setBasicInfoEmail(userInfo.email || '');
+      setPortraitPreview(userInfo.avatar_url || null);
+    }
+  }, [userInfo]);
 
   const handleBasicInfoSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -52,6 +66,9 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onClose, onLogout }) =
 
     try {
       await editUserProfile(updateData);
+      if (fetchUserInfo) {
+        await fetchUserInfo();
+      }
       setBasicInfoStatus({ type: 'success', message: 'Profile updated successfully!' });
       // Clear password fields on success
       setOldPassword('');
@@ -80,6 +97,9 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onClose, onLogout }) =
 
     try {
       await editUserEmail(updateData);
+      if (fetchUserInfo) {
+        await fetchUserInfo();
+      }
       setEmailStatus({ type: 'success', message: 'Email updated successfully!' });
       setEmailPassword('');
       setNewEmail('');
@@ -171,19 +191,32 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onClose, onLogout }) =
         img.addEventListener('load', () => URL.revokeObjectURL(objUrl));
       });
 
-      await editUserPortrait(resizedFile);
+      const response = await editUserPortrait(resizedFile);
 
-      // Update global avatar cache natively via base64 for immediate presentation without fetching
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const base64data = reader.result as string;
-        localStorage.setItem('userAvatar', base64data);
-        setPortraitPreview(base64data);
-        window.dispatchEvent(new Event('avatarUpdated'));
-      };
-      reader.readAsDataURL(resizedFile);
+      // Convert resized file to base64 for immediate caching
+      const base64data = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(resizedFile);
+      });
+
+      // Cache the new base64 data and the url locally
+      if (response && response.data && response.data.avatar_url) {
+        localStorage.setItem('cached_avatar_url', response.data.avatar_url);
+        localStorage.setItem('cached_avatar_data', base64data);
+      } else if (response && response.avatar_url) {
+        localStorage.setItem('cached_avatar_url', response.avatar_url);
+        localStorage.setItem('cached_avatar_data', base64data);
+      }
+
+      // Update global user info context so app-wide avatar changes
+      if (fetchUserInfo) {
+        await fetchUserInfo();
+      }
 
       setPortraitStatus({ type: 'success', message: 'Portrait updated successfully!' });
+      setPortraitFile(null);
     } catch (err: unknown) {
       const error = err as { response?: { data?: { detail?: Array<{ msg: string }> | string } }; message?: string };
       const detail = error.response?.data?.detail;

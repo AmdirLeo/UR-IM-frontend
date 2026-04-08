@@ -1,5 +1,6 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useContext } from 'react';
 import { User, MessageCircle, Users, Settings, LogOut } from 'lucide-react';
+import { UserContext } from '../../context/UserContext';
 
 export type ViewMode = 'messages' | 'contacts' | 'profile';
 
@@ -18,22 +19,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
 }) => {
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const logoutRef = useRef<HTMLDivElement>(null);
-  const [avatarSrc, setAvatarSrc] = useState<string | null>(null);
-
-  // Sync avatar from local storage
-  useEffect(() => {
-    const updateAvatar = () => {
-      const cachedAvatar = localStorage.getItem('userAvatar');
-      setAvatarSrc(cachedAvatar);
-    };
-
-    updateAvatar();
-
-    window.addEventListener('avatarUpdated', updateAvatar);
-    return () => {
-      window.removeEventListener('avatarUpdated', updateAvatar);
-    };
-  }, []);
+  const userContext = useContext(UserContext);
+  const avatarSrc = userContext?.userInfo?.avatar_url;
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {

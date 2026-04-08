@@ -12,6 +12,11 @@ export interface EmailEdit {
   'new-email'?: string;
 }
 
+export const getUserInfo = async () => {
+  const response = await api.get('/user/info');
+  return response.data;
+};
+
 export const editUserProfile = async (data: UserEdit) => {
   const response = await api.put('/user/edit', data);
   return response.data;

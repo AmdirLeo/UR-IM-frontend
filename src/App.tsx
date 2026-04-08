@@ -1,21 +1,17 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useContext } from 'react';
 import { Auth } from './components/Auth';
 import { MainLayout } from './components/layout/MainLayout';
-import { logoutUser } from './api';
+import { UserContext } from './context/UserContext';
 
-function App() {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [userId, setUserId] = useState('');
-  const [username, setUsername] = useState('');
-  const [token, setToken] = useState<string | null>(null);
+function AppContent() {
+  const userContext = useContext(UserContext);
+  if (!userContext) {
+    throw new Error('AppContent must be used within a UserProvider');
+  }
+
+  const { isAuthenticated, userInfo, token, handleLoginSuccess, logout } = userContext;
 
   useEffect(() => {
-    const savedToken = localStorage.getItem('token');
-    if (savedToken) {
-      setToken(savedToken);
-      setIsAuthenticated(true);
-    }
-
     // Apply dark mode on load if saved
     const savedTheme = localStorage.getItem('theme');
     if (savedTheme === 'dark') {
@@ -25,34 +21,17 @@ function App() {
     }
   }, []);
 
-  const handleLoginSuccess = (id: string, name?: string) => {
-    setUserId(id);
-    if (name) setUsername(name);
-
+  const onLoginSuccess = async () => {
     const newToken = localStorage.getItem('token');
-    setToken(newToken);
-    setIsAuthenticated(true);
-  };
-
-  const handleLogout = async () => {
-    try {
-      // Import logoutUser from api at top if not done already
-      await logoutUser();
-    } catch (e) {
-      console.error('Logout failed:', e);
-    } finally {
-      localStorage.removeItem('token');
-      setIsAuthenticated(false);
-      setUserId('');
-      setUsername('');
-      setToken(null);
+    if (newToken) {
+      await handleLoginSuccess(newToken);
     }
   };
 
   if (!isAuthenticated) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-primary text-primary px-4">
-        <Auth onLoginSuccess={handleLoginSuccess} />
+        <Auth onLoginSuccess={onLoginSuccess} />
       </div>
     );
   }
@@ -60,12 +39,12 @@ function App() {
   // The MainLayout now wraps the sidebar, chat list, and chat panel
   return (
     <MainLayout
-      currentUserId={userId}
-      username={username}
+      currentUserId={userInfo?.id?.toString() || ''}
+      username={userInfo?.username || ''}
       token={token}
-      onLogout={handleLogout}
+      onLogout={logout}
     />
   );
 }
 
-export default App;
+export default AppContent;
