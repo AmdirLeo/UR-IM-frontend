@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Mail, Lock, User, Hash, AlertCircle } from 'lucide-react';
 import { sendRegisterEmail, registerUser, loginUser } from '../api';
 import styles from './Auth.module.css';
@@ -23,7 +23,37 @@ export const Auth: React.FC<AuthProps> = ({ onLoginSuccess }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
-  const [emailSent, setEmailSent] = useState(false);
+  const [countdown, setCountdown] = useState(0);
+
+  // Initialize countdown from localStorage
+  useEffect(() => {
+    const lastSentStr = localStorage.getItem('register_code_last_sent');
+    if (lastSentStr) {
+      const lastSent = parseInt(lastSentStr, 10);
+      const now = Date.now();
+      const diff = Math.floor((now - lastSent) / 1000);
+      if (diff < 60) {
+        setCountdown(60 - diff);
+      } else {
+        localStorage.removeItem('register_code_last_sent');
+      }
+    }
+  }, []);
+
+  // Handle countdown interval
+  useEffect(() => {
+    let timer: ReturnType<typeof setInterval>;
+    if (countdown > 0) {
+      timer = setInterval(() => {
+        setCountdown((prev) => prev - 1);
+      }, 1000);
+    } else {
+      localStorage.removeItem('register_code_last_sent');
+    }
+    return () => {
+      if (timer) clearInterval(timer);
+    };
+  }, [countdown]);
 
   const resetMessages = () => {
     setError('');
@@ -35,13 +65,24 @@ export const Auth: React.FC<AuthProps> = ({ onLoginSuccess }) => {
       setError('Please enter your email first.');
       return;
     }
+
+    // Basic email validation
+    const emailRegex = /^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$/;
+    if (!emailRegex.test(email)) {
+      setError('Please enter a valid email address.');
+      return;
+    }
+
     resetMessages();
     setLoading(true);
     try {
       const data = await sendRegisterEmail(email);
       const code = data?.verification_code;
       setSuccessMsg(code ? `Verification code: ${code}` : 'Verification code sent to your email.');
-      setEmailSent(true);
+
+      // Start countdown
+      setCountdown(60);
+      localStorage.setItem('register_code_last_sent', Date.now().toString());
     } catch (err: unknown) {
       const e = err as { response?: { data?: { detail?: { msg: string }[]; msg?: string } } };
       setError(e.response?.data?.detail?.[0]?.msg || e.response?.data?.msg || 'Failed to send verification code.');
@@ -174,10 +215,10 @@ export const Auth: React.FC<AuthProps> = ({ onLoginSuccess }) => {
                 <button
                   type="button"
                   onClick={handleSendCode}
-                  disabled={loading || emailSent}
+                  disabled={loading || countdown > 0}
                   className={styles.getCodeBtn}
                 >
-                  {emailSent ? 'Sent' : 'Get Code'}
+                  {countdown > 0 ? `${countdown}s` : 'Get Code'}
                 </button>
               </div>
             </div>
