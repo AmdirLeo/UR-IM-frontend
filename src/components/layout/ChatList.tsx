@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Search, Plus, BellOff } from 'lucide-react';
 
 interface ChatListProps {
-  activeChatId: number;
+  activeChatId: number | null;
   onSelectChat: (id: number) => void;
   width: number;
 }
@@ -28,7 +28,7 @@ export const ChatList: React.FC<ChatListProps> = ({ activeChatId, onSelectChat, 
           <input
             type="text"
             className="w-full bg-panel text-primary rounded text-sm pl-8 pr-2 py-1.5 focus:outline-none focus:bg-primary focus:ring-1 focus:ring-border-focus transition-colors"
-            placeholder="搜索"
+            placeholder="Search"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />

@@ -227,7 +227,7 @@ export const Auth: React.FC<AuthProps> = ({ onLoginSuccess }) => {
 
         {mode === 'login' && (
           <div>
-            <label className={styles.label}>User ID</label>
+            <label className={styles.label}>User ID/Email</label>
             <div className={styles.inputGroup}>
               <div className={styles.iconContainer}>
                 <User className={styles.icon} />

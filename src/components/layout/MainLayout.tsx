@@ -20,6 +20,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ currentUserId, username,
 
   // View State
   const [activeView, setActiveView] = useState<ViewMode>('messages');
+  const [previousView, setPreviousView] = useState<ViewMode>('messages');
 
   // Messages State
   const [activeChatId, setActiveChatId] = useState<number | null>(null);
@@ -72,7 +73,15 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ currentUserId, username,
     // In a real app, this might create a new chat or find an existing one
     // For now, we mock it by switching to Messages view and setting the activeChatId
     setActiveChatId(contactId);
+    setPreviousView(activeView);
     setActiveView('messages');
+  };
+
+  const handleNavigate = (view: ViewMode) => {
+    if (view === 'profile' && activeView !== 'profile') {
+      setPreviousView(activeView);
+    }
+    setActiveView(view);
   };
 
   return (
@@ -82,13 +91,13 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ currentUserId, username,
       {/* 1. Left Narrow Sidebar */}
       <Sidebar
         activeView={activeView}
-        onNavigate={setActiveView}
+        onNavigate={handleNavigate}
         onLogout={onLogout}
         onOpenSettings={() => setShowSettings(true)}
       />
 
       {activeView === 'profile' ? (
-        <UserProfile onClose={() => setActiveView('messages')} currentUserId={currentUserId} onLogout={onLogout} />
+        <UserProfile onClose={() => setActiveView(previousView)} currentUserId={currentUserId} onLogout={onLogout} />
       ) : (
         <>
           {/* 2. Middle List Area (Chats or Contacts) */}
@@ -116,7 +125,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ currentUserId, username,
           {activeView === 'messages' ? (
             activeChatId === null ? (
               <div className="flex-1 h-full bg-primary flex items-center justify-center min-w-[400px]">
-                <h1 className="text-2xl text-primary font-medium">早上好，{username}</h1>
+                <h1 className="text-2xl text-primary font-medium">Welcome back, {username}</h1>
               </div>
             ) : (
               <ChatPanel

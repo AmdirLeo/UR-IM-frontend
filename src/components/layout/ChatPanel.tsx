@@ -172,7 +172,7 @@ export const ChatPanel: React.FC<ChatPanelProps & { activeChatName?: string }> =
                 : 'bg-secondary text-secondary border border-primary cursor-not-allowed'
             }`}
           >
-            发送(S)
+            Send
           </button>
         </div>
       </div>

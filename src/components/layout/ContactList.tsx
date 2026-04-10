@@ -78,7 +78,7 @@ export const ContactList: React.FC<ContactListProps> = ({ activeContactId, onSel
           <input
             type="text"
             className={styles.searchInput}
-            placeholder="搜索"
+            placeholder="Search"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
@@ -98,13 +98,13 @@ export const ContactList: React.FC<ContactListProps> = ({ activeContactId, onSel
             <div className="w-10 h-10 rounded overflow-hidden flex-shrink-0 mr-3 bg-orange-400 flex items-center justify-center">
               <UserPlus className="h-5 w-5 text-white" />
             </div>
-            <span className="text-base text-secondary">Friend Requests (好友申请)</span>
+            <span className="text-base text-secondary">Friend Requests</span>
          </div>
          <div className={styles.requestItem}>
             <div className="w-10 h-10 rounded overflow-hidden flex-shrink-0 mr-3 bg-green-500 flex items-center justify-center">
               <UsersIcon className="h-5 w-5 text-white" />
             </div>
-            <span className="text-base text-secondary">Group Requests (群聊申请)</span>
+            <span className="text-base text-secondary">Group Requests</span>
          </div>
       </div>
 
