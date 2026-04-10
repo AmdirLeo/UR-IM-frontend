@@ -15,14 +15,14 @@ interface MainLayoutProps {
   onLogout: () => void;
 }
 
-export const MainLayout: React.FC<MainLayoutProps> = ({ currentUserId, token, onLogout }) => {
+export const MainLayout: React.FC<MainLayoutProps> = ({ currentUserId, username, token, onLogout }) => {
   const { isConnected, messages, sendMessage } = useWebSocket(token);
 
   // View State
   const [activeView, setActiveView] = useState<ViewMode>('messages');
 
   // Messages State
-  const [activeChatId, setActiveChatId] = useState<number>(0);
+  const [activeChatId, setActiveChatId] = useState<number | null>(null);
 
   // Contacts State
   const [activeContactId, setActiveContactId] = useState<number | null>(null);
@@ -114,14 +114,20 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ currentUserId, token, on
 
           {/* 3. Main Detail Area (Chat Panel or Profile Detail) */}
           {activeView === 'messages' ? (
-            <ChatPanel
-              activeChatId={activeChatId}
-              activeChatName={dummyChats.find((c: { id: number; name: string; avatarColor: string; isMuted: boolean; time: string; unread: number; }) => c.id === activeChatId)?.name}
-              currentUserId={currentUserId}
-              isConnected={isConnected}
-              messages={messages}
-              sendMessage={sendMessage}
-            />
+            activeChatId === null ? (
+              <div className="flex-1 h-full bg-primary flex items-center justify-center min-w-[400px]">
+                <h1 className="text-2xl text-primary font-medium">早上好，{username}</h1>
+              </div>
+            ) : (
+              <ChatPanel
+                activeChatId={activeChatId}
+                activeChatName={dummyChats.find((c: { id: number; name: string; avatarColor: string; isMuted: boolean; time: string; unread: number; }) => c.id === activeChatId)?.name}
+                currentUserId={currentUserId}
+                isConnected={isConnected}
+                messages={messages}
+                sendMessage={sendMessage}
+              />
+            )
           ) : (
             <ContactDetail
               contactId={activeContactId}

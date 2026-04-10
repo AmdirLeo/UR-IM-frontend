@@ -67,7 +67,7 @@ export const Auth: React.FC<AuthProps> = ({ onLoginSuccess }) => {
     }
 
     // Basic email validation
-    const emailRegex = /^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$/;
+    const emailRegex = /^[\w-.]+@([\w-]+\.)+[\w-]{2,4}$/;
     if (!emailRegex.test(email)) {
       setError('Please enter a valid email address.');
       return;
