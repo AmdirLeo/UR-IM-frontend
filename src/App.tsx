@@ -2,6 +2,7 @@ import { useEffect, useContext } from 'react';
 import { Auth } from './components/Auth';
 import { MainLayout } from './components/layout/MainLayout';
 import { UserContext } from './context/UserContext';
+import authStyles from './components/Auth.module.css';
 
 function AppContent() {
   const userContext = useContext(UserContext);
@@ -12,12 +13,12 @@ function AppContent() {
   const { isAuthenticated, userInfo, token, handleLoginSuccess, logout } = userContext;
 
   useEffect(() => {
+    // Apply dark mode on load if saved
     const savedTheme = localStorage.getItem('theme');
-    document.documentElement.classList.remove('dark', 'theme-purple');
     if (savedTheme === 'dark') {
       document.documentElement.classList.add('dark');
-    } else if (savedTheme === 'purple') {
-      document.documentElement.classList.add('theme-purple');
+    } else {
+      document.documentElement.classList.remove('dark');
     }
   }, []);
 
@@ -30,7 +31,7 @@ function AppContent() {
 
   if (!isAuthenticated) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-primary text-primary px-4">
+      <div className={authStyles.authPageWrapper}>
         <Auth onLoginSuccess={onLoginSuccess} />
       </div>
     );
