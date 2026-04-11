@@ -58,7 +58,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           onClick={() => onNavigate('messages')}
           title="Messages"
         >
-          <MessageCircle className={`w-6 h-6 transition-colors ${activeView === 'messages' ? 'text-brand' : 'text-[var(--sidebar-text)] group-hover:text-[var(--sidebar-hover-text)]'}`} />
+          <MessageCircle className={`w-6 h-6 transition-colors ${activeView === 'messages' ? 'text-[var(--sidebar-active-text)]' : 'text-[var(--sidebar-text)] group-hover:text-[var(--sidebar-hover-text)]'}`} />
           {/* Badge */}
           <div className="absolute -top-1 right-2 bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full border-2 border-primary">
             6
@@ -70,7 +70,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           onClick={() => onNavigate('contacts')}
           title="Contacts"
         >
-          <Users className={`w-6 h-6 transition-colors ${activeView === 'contacts' ? 'text-brand' : 'text-[var(--sidebar-text)] group-hover:text-[var(--sidebar-hover-text)]'}`} />
+          <Users className={`w-6 h-6 transition-colors ${activeView === 'contacts' ? 'text-[var(--sidebar-active-text)]' : 'text-[var(--sidebar-text)] group-hover:text-[var(--sidebar-hover-text)]'}`} />
         </div>
       </div>
 

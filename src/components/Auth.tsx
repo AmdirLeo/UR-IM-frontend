@@ -3,6 +3,9 @@ import { Mail, Lock, User, Hash, AlertCircle } from 'lucide-react';
 import { sendRegisterEmail, registerUser, loginUser } from '../api';
 import styles from './Auth.module.css';
 
+import loginLightImg from '../assets/images/login-light.png';
+import loginDarkImg from '../assets/images/login-dark.png';
+
 type AuthMode = 'login' | 'signup';
 
 interface AuthProps {
@@ -132,6 +135,9 @@ export const Auth: React.FC<AuthProps> = ({ onLoginSuccess }) => {
 
   return (
     <div className={styles.authCard}>
+      <img src={loginLightImg} alt="Login" className="block dark:hidden mx-auto mb-4 w-32 object-contain" />
+      <img src={loginDarkImg} alt="Login" className="hidden dark:block mx-auto mb-4 w-32 object-contain" />
+
       <div className={styles.headerContainer}>
         <h2 className={styles.title}>
           {mode === 'login' ? 'Welcome Back' : 'Create Account'}
