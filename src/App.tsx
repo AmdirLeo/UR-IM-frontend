@@ -12,12 +12,12 @@ function AppContent() {
   const { isAuthenticated, userInfo, token, handleLoginSuccess, logout } = userContext;
 
   useEffect(() => {
-    // Apply dark mode on load if saved
     const savedTheme = localStorage.getItem('theme');
+    document.documentElement.classList.remove('dark', 'theme-purple');
     if (savedTheme === 'dark') {
       document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
+    } else if (savedTheme === 'purple') {
+      document.documentElement.classList.add('theme-purple');
     }
   }, []);
 

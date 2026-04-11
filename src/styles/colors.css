@@ -25,6 +25,11 @@
   --border-secondary: #E9E9E9;
   --border-focus: #1AAD19;
 
+  /* Sidebar colors */
+  --sidebar-bg: var(--bg-secondary);
+  --sidebar-text: var(--text-secondary);
+  --sidebar-hover-text: var(--text-primary);
+
   /* Brand / Primary Action Colors (WeChat Green) */
   --brand-primary: #1AAD19;
   --brand-hover: #129611;
@@ -43,6 +48,16 @@
   --chat-bubble-self-hover: #89D961;
   --chat-bubble-other: #FFFFFF;
   --chat-bubble-other-hover: #F5F5F5;
+}
+
+.theme-purple {
+  --border-focus: #7B1FA2;
+  --brand-primary: #7B1FA2;
+  --brand-hover: #6A1B9A;
+  --brand-active: #4A148C;
+  --sidebar-bg: #7B1FA2;
+  --sidebar-text: #FFFFFF;
+  --sidebar-hover-text: #F5F5F5;
 }
 
 .dark {
@@ -74,10 +89,14 @@
   --border-focus: #1AAD19;
 
   /* Brand / Primary Action Colors */
-  /* Kept green but slightly desaturated for dark mode, or use same */
   --brand-primary: #1AAD19;
   --brand-hover: #129611;
   --brand-active: #06AD56;
+
+  /* Sidebar colors */
+  --sidebar-bg: var(--bg-secondary);
+  --sidebar-text: var(--text-secondary);
+  --sidebar-hover-text: var(--text-primary);
 
   /* Semantic Colors */
   --color-success: #07C160;
