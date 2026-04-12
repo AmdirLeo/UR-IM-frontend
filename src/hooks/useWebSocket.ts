@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 
 export interface ChatMessage {
-  type: 'chat';
+  type: 'chat' | 'private' | 'broadcast';
   sender_id?: number;
   receiver_id?: number;
+  from?: number; // 增加后端使用的来源字段
   content: string;
 }
 
@@ -12,17 +13,34 @@ export interface SystemMessage {
   message: string;
 }
 
-export type WSMessage = ChatMessage | SystemMessage;
+// 1. 新增：匹配后端下发的真实系统通知/好友申请结构
+export interface NewChatMessage {
+  type: 'NEW_CHAT_MESSAGE';
+  data: {
+    conversation_id: number;
+    msg_id: number;
+    sender_id: number;
+    msg_type: string;  // 例如 'friend_apply'
+    content: string;   // JSON 字符串
+    create_time: string;
+    quote_message_id?: number | null;
+  };
+}
+
+export type WSMessage = ChatMessage | SystemMessage | NewChatMessage;
 
 interface UseWebSocketReturn {
   isConnected: boolean;
   messages: WSMessage[];
+  friendRequests: NewChatMessage[];
   sendMessage: (receiverId: number, content: string, currentUserId: number) => void;
 }
 
 export const useWebSocket = (token: string | null): UseWebSocketReturn => {
   const [isConnected, setIsConnected] = useState(false);
   const [messages, setMessages] = useState<WSMessage[]>([]);
+  // 👈 新增：专门存储好友申请的 State
+  const [friendRequests, setFriendRequests] = useState<NewChatMessage[]>([]);
   const wsRef = useRef<WebSocket | null>(null);
   const pingIntervalRef = useRef<number | null>(null);
 
@@ -31,7 +49,8 @@ export const useWebSocket = (token: string | null): UseWebSocketReturn => {
 
     // We use the same host as the API but with the ws:// protocol
     // Assuming backend is at localhost:8000 as defined by user
-    const wsUrl = `ws://127.0.0.1:8000/api/ws/chat?token=${token}`;
+    const baseUrl = import.meta.env.VITE_WS_URL || 'ws://127.0.0.1:8000/websocket/ws';
+    const wsUrl = `${baseUrl}?token=${token}`;
     const ws = new WebSocket(wsUrl);
     wsRef.current = ws;
 
@@ -50,8 +69,22 @@ export const useWebSocket = (token: string | null): UseWebSocketReturn => {
     ws.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data);
-        if (data.type === 'chat' || data.type === 'system') {
+        console.log('📥 收到后端消息:', data); 
+        
+        // 分流逻辑开始
+        if (['chat', 'system', 'private', 'broadcast'].includes(data.type)) {
+          // 常规的旧版消息，直接进聊天框
           setMessages((prev) => [...prev, data]);
+          
+        } else if (data.type === 'NEW_CHAT_MESSAGE') {
+          // 拦截到新版结构，向内剥开一层判断 msg_type
+          if (data.data && data.data.msg_type === 'friend_apply') {
+            console.log('🔔 成功拦截好友申请！放入专属列表。');
+            setFriendRequests((prev) => [...prev, data]); // 塞进好友申请列表
+          } else {
+            // 如果是其他类型的新消息（比如普通文本），依然放进聊天框
+            setMessages((prev) => [...prev, data]);
+          }
         }
       } catch (err) {
         console.error('Failed to parse WebSocket message:', err);
@@ -81,9 +114,9 @@ export const useWebSocket = (token: string | null): UseWebSocketReturn => {
 
   const sendMessage = useCallback((receiverId: number, content: string, currentUserId: number) => {
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-      const msg: ChatMessage = {
+      const msg = {
         type: 'chat',
-        receiver_id: receiverId,
+        target_id: receiverId,
         content,
       };
       wsRef.current.send(JSON.stringify(msg));
@@ -95,5 +128,5 @@ export const useWebSocket = (token: string | null): UseWebSocketReturn => {
     }
   }, []);
 
-  return { isConnected, messages, sendMessage };
+  return { isConnected, messages, friendRequests, sendMessage };
 };
