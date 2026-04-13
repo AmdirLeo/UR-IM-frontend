@@ -98,7 +98,8 @@ export const ChatPanel: React.FC<ChatPanelProps & { activeChatName?: string }> =
           </div>
         ) : (
           messages.map((msg, idx) => {
-            const isMe = msg.type === 'chat' && msg.sender_id?.toString() === currentUserId;
+            const isMe = (msg.type === 'chat' && msg.sender_id?.toString() === currentUserId) ||
+              (msg.type === 'NEW_CHAT_MESSAGE' && msg.data.sender_id?.toString() === currentUserId);
 
             if (msg.type === 'system') {
               return (
@@ -110,6 +111,9 @@ export const ChatPanel: React.FC<ChatPanelProps & { activeChatName?: string }> =
               );
             }
 
+            // Get content based on message type
+            const content = msg.type === 'NEW_CHAT_MESSAGE' ? msg.data.content : msg.content;
+
             return (
               <div key={idx} className={`flex ${isMe ? 'justify-end' : 'justify-start'} mb-4`}>
                 {!isMe && (
@@ -119,12 +123,12 @@ export const ChatPanel: React.FC<ChatPanelProps & { activeChatName?: string }> =
                 <div className={`max-w-[70%] ${isMe ? 'bg-bubble-self text-primary' : 'bg-bubble-other text-primary'} rounded p-2.5 shadow-sm border ${isMe ? 'border-primary' : 'border-primary'} relative`}>
                   {/* Tiny triangle pointer */}
                   <div className={`absolute top-3 w-0 h-0 border-y-[6px] border-y-transparent ${isMe
-                      ? 'right-[-6px] border-l-[6px] border-l-[#95EC69] dark:border-l-[#2B2B2B]'
-                      : 'left-[-6px] border-r-[6px] border-r-white dark:border-r-[#202020]'
+                    ? 'right-[-6px] border-l-[6px] border-l-[#95EC69] dark:border-l-[#2B2B2B]'
+                    : 'left-[-6px] border-r-[6px] border-r-white dark:border-r-[#202020]'
                     }`} />
 
                   <p className="text-primary text-base leading-relaxed whitespace-pre-wrap word-break">
-                    {msg.content}
+                    {content}
                   </p>
                 </div>
 
@@ -166,8 +170,8 @@ export const ChatPanel: React.FC<ChatPanelProps & { activeChatName?: string }> =
             onClick={handleSend}
             disabled={!inputText.trim()}
             className={`px-6 py-1.5 rounded text-[14px] font-medium transition-colors ${inputText.trim()
-                ? 'bg-secondary hover:bg-hover text-success'
-                : 'bg-secondary text-secondary border border-primary cursor-not-allowed'
+              ? 'bg-secondary hover:bg-hover text-success'
+              : 'bg-secondary text-secondary border border-primary cursor-not-allowed'
               }`}
           >
             Send
