@@ -31,8 +31,12 @@ export const FriendRequestsModal: React.FC<FriendRequestsModalProps> = ({ isOpen
       } else {
         setError(response.msg || `Failed to ${action} request`);
       }
-    } catch (err: any) {
-      setError(err.response?.data?.msg || err.message || `Failed to ${action} request`);
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        setError((err as { response?: { data?: { msg?: string } } }).response?.data?.msg || err.message || `Failed to ${action} request`);
+      } else {
+        setError(`Failed to ${action} request`);
+      }
     } finally {
       setProcessingId(null);
     }
@@ -64,7 +68,7 @@ export const FriendRequestsModal: React.FC<FriendRequestsModalProps> = ({ isOpen
           {friendRequests.length > 0 ? (
             friendRequests.map((req) => {
               // Parse the JSON content safely
-              let parsedContent: any = {};
+              let parsedContent: Record<string, unknown> = {};
               try {
                 parsedContent = JSON.parse(req.data.content);
               } catch (e) {
@@ -73,9 +77,9 @@ export const FriendRequestsModal: React.FC<FriendRequestsModalProps> = ({ isOpen
 
               const msgId = req.data.msg_id;
               // Provide fallback properties since different backends might use different keys for the friend request ID
-              const requestId = parsedContent.request_id || parsedContent.apply_id || parsedContent.id || req.data.msg_id;
-              const username = parsedContent.username || `User ${req.data.sender_id}`;
-              const message = parsedContent.message || 'No message';
+              const requestId = (parsedContent.request_id ?? parsedContent.apply_id ?? parsedContent.id ?? req.data.msg_id) as number;
+              const username = (parsedContent.username as string) || `User ${req.data.sender_id}`;
+              const message = (parsedContent.message as string) || 'No message';
 
               return (
                 <div key={msgId} className="flex flex-col p-3 hover:bg-gray-50 dark:hover:bg-secondary rounded-lg transition-colors border-b border-primary last:border-0">

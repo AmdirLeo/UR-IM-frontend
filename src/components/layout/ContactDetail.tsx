@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { MessageSquare, Trash2 } from 'lucide-react';
 import { getFriendList, FriendInfo, removeFriend } from '../../api/friend';
+import { FriendAvatar } from '../common/FriendAvatar';
 import styles from './ContactDetail.module.css';
 
 interface ContactDetailProps {
   contactId: number | null;
   contactName: string | undefined;
   avatarColor: string | undefined;
+  avatarUrl?: string | null;
   onSendMessage: (contactId: number) => void;
 }
 
@@ -14,6 +16,7 @@ export const ContactDetail: React.FC<ContactDetailProps> = ({
   contactId,
   contactName,
   avatarColor,
+  avatarUrl,
   onSendMessage
 }) => {
   const [friendDetails, setFriendDetails] = useState<FriendInfo | null>(null);
@@ -76,10 +79,21 @@ export const ContactDetail: React.FC<ContactDetailProps> = ({
       <div className={styles.detailCard}>
 
         {/* Large Avatar */}
-        <div className={`w-24 h-24 rounded-lg overflow-hidden flex items-center justify-center mb-6 shadow-md ${avatarColor || 'bg-gray-400'}`}>
-           <span className="text-4xl text-white font-bold opacity-90">
-             {contactName.charAt(0)}
-           </span>
+        <div className="w-24 h-24 rounded-lg overflow-hidden flex items-center justify-center mb-6 shadow-md mx-auto">
+          {friendDetails ? (
+            <FriendAvatar
+              userId={contactId!}
+              avatarUrl={avatarUrl || friendDetails.avatar_url}
+              name={contactName}
+              fallbackColorClass={avatarColor || 'bg-gray-400'}
+            />
+          ) : (
+            <div className={`w-full h-full flex items-center justify-center ${avatarColor || 'bg-gray-400'}`}>
+              <span className="text-4xl text-white font-bold opacity-90">
+                {contactName.charAt(0)}
+              </span>
+            </div>
+          )}
         </div>
 
         {/* Profile Info */}

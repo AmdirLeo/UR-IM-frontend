@@ -20,14 +20,6 @@ export const dummyGroups = [
   { id: 203, name: '周末篮球俱乐部', avatarColor: 'bg-orange-500' },
 ];
 
-export const dummyFriends = [
-  { id: 101, name: '张三', avatarColor: 'bg-blue-400' },
-  { id: 102, name: '李四', avatarColor: 'bg-green-500' },
-  { id: 103, name: '王五', avatarColor: 'bg-yellow-500' },
-  { id: 104, name: '赵六', avatarColor: 'bg-red-400' },
-  { id: 105, name: '孙七', avatarColor: 'bg-purple-400' },
-];
-
 export const ContactList: React.FC<ContactListProps> = ({ activeContactId, onSelectContact, width }) => {
   const { friendRequests } = useChatContext();
   const { friends, loading, forceRefresh } = useContactContext();
