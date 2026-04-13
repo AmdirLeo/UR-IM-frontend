@@ -4,7 +4,7 @@ import { ChatList, dummyChats } from './ChatList';
 import { ChatPanel } from './ChatPanel';
 import { ContactList, dummyFriends, dummyGroups } from './ContactList';
 import { ContactDetail } from './ContactDetail';
-import { useWebSocket } from '../../hooks/useWebSocket';
+import { useChatContext } from '../../context/ChatContext';
 import { SettingsOverlay } from './SettingsOverlay';
 import { UserProfile } from './UserProfile';
 
@@ -15,8 +15,8 @@ interface MainLayoutProps {
   onLogout: () => void;
 }
 
-export const MainLayout: React.FC<MainLayoutProps> = ({ currentUserId, username, token, onLogout }) => {
-  const { isConnected, messages, sendMessage } = useWebSocket(token);
+export const MainLayout: React.FC<MainLayoutProps> = ({ currentUserId, username, onLogout }) => {
+  const { isConnected, messages, sendMessage } = useChatContext();
 
   // View State
   const [activeView, setActiveView] = useState<ViewMode>('messages');
