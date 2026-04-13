@@ -3,8 +3,8 @@ import { X, Upload, AlertTriangle, Check } from 'lucide-react';
 import Cropper from 'react-easy-crop';
 import type { Area } from 'react-easy-crop';
 import styles from './UserProfile.module.css';
-import { editUserProfile, editUserEmail, editUserPortrait, deleteUserAccount } from '../../api/user';
-import { UserEdit, EmailEdit } from '../../api/user';
+import { editUserUsername, editUserPassword, editUserEmail, editUserPortrait, deleteUserAccount } from '../../api/user';
+import { EmailEdit } from '../../api/user';
 import { UserContext } from '../../context/UserContext';
 import getCroppedImg from '../../utils/cropImage';
 
@@ -19,12 +19,14 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onClose, onLogout }) =
   const userInfo = userContext?.userInfo;
   const fetchUserInfo = userContext?.fetchUserInfo;
 
-  // Basic Info State
+  // Username State
   const [userName, setUserName] = useState('');
+  const [usernameStatus, setUsernameStatus] = useState<{ type: 'success' | 'error' | null, message: string }>({ type: null, message: '' });
+
+  // Password State
   const [oldPassword, setOldPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
-  const [basicInfoEmail, setBasicInfoEmail] = useState('');
-  const [basicInfoStatus, setBasicInfoStatus] = useState<{ type: 'success' | 'error' | null, message: string }>({ type: null, message: '' });
+  const [passwordStatus, setPasswordStatus] = useState<{ type: 'success' | 'error' | null, message: string }>({ type: null, message: '' });
 
   // Email State
   const [emailPassword, setEmailPassword] = useState('');
@@ -52,42 +54,52 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onClose, onLogout }) =
   useEffect(() => {
     if (userInfo) {
       setUserName(userInfo.username || '');
-      setBasicInfoEmail(userInfo.email || '');
       setPortraitPreview(userInfo.avatar_url || null);
     }
   }, [userInfo]);
 
-  const handleBasicInfoSubmit = async (e: React.FormEvent) => {
+  const handleUsernameSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setBasicInfoStatus({ type: null, message: '' });
+    setUsernameStatus({ type: null, message: '' });
 
-    const updateData: UserEdit = {};
-    if (userName) updateData.user_name = userName;
-    if (oldPassword && newPassword) {
-      updateData.old_password = oldPassword;
-      updateData.new_password = newPassword;
-    }
-    if (basicInfoEmail) updateData.email = basicInfoEmail;
-
-    if (Object.keys(updateData).length === 0) {
-      setBasicInfoStatus({ type: 'error', message: 'No changes provided.' });
+    if (!userName) {
+      setUsernameStatus({ type: 'error', message: 'Username is required.' });
       return;
     }
 
     try {
-      await editUserProfile(updateData);
+      await editUserUsername({ new_username: userName });
       if (fetchUserInfo) {
         await fetchUserInfo();
       }
-      setBasicInfoStatus({ type: 'success', message: 'Profile updated successfully!' });
-      // Clear password fields on success
+      setUsernameStatus({ type: 'success', message: 'Username updated successfully!' });
+    } catch (err: unknown) {
+      const error = err as { response?: { data?: { detail?: Array<{ msg: string }> | string } }; message?: string };
+      const detail = error.response?.data?.detail;
+      const errorMessage = Array.isArray(detail) ? detail[0]?.msg : (detail || 'Failed to update username.');
+      setUsernameStatus({ type: 'error', message: errorMessage as string });
+    }
+  };
+
+  const handlePasswordSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setPasswordStatus({ type: null, message: '' });
+
+    if (!oldPassword || !newPassword) {
+      setPasswordStatus({ type: 'error', message: 'Both old and new passwords are required.' });
+      return;
+    }
+
+    try {
+      await editUserPassword({ old_password: oldPassword, new_password: newPassword });
+      setPasswordStatus({ type: 'success', message: 'Password updated successfully!' });
       setOldPassword('');
       setNewPassword('');
     } catch (err: unknown) {
       const error = err as { response?: { data?: { detail?: Array<{ msg: string }> | string } }; message?: string };
       const detail = error.response?.data?.detail;
-      const errorMessage = Array.isArray(detail) ? detail[0]?.msg : (detail || 'Failed to update profile.');
-      setBasicInfoStatus({ type: 'error', message: errorMessage as string });
+      const errorMessage = Array.isArray(detail) ? detail[0]?.msg : (detail || 'Failed to update password.');
+      setPasswordStatus({ type: 'error', message: errorMessage as string });
     }
   };
 
@@ -278,32 +290,36 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onClose, onLogout }) =
           </form>
         </section>
 
-        {/* Basic Info Update Section */}
+        {/* Username Update Section */}
         <section className={styles.section}>
-          <h3 className={styles.sectionTitle}>Basic Info & Password</h3>
-          <form onSubmit={handleBasicInfoSubmit} className={styles.form}>
-            <div className="grid grid-cols-2 gap-4">
-              <div className={styles.inputGroup}>
-                <label className={styles.label}>Username</label>
-                <input
-                  type="text"
-                  className={styles.input}
-                  value={userName}
-                  onChange={(e) => setUserName(e.target.value)}
-                  placeholder="New username"
-                />
-              </div>
-              <div className={styles.inputGroup}>
-                <label className={styles.label}>Email</label>
-                <input
-                  type="email"
-                  className={styles.input}
-                  value={basicInfoEmail}
-                  onChange={(e) => setBasicInfoEmail(e.target.value)}
-                  placeholder="Basic info email"
-                />
-              </div>
+          <h3 className={styles.sectionTitle}>Username</h3>
+          <form onSubmit={handleUsernameSubmit} className={styles.form}>
+            <div className={styles.inputGroup}>
+              <label className={styles.label}>New Username</label>
+              <input
+                type="text"
+                className={styles.input}
+                value={userName}
+                onChange={(e) => setUserName(e.target.value)}
+                placeholder="New username"
+                required
+              />
             </div>
+            <button type="submit" className={styles.submitBtn}>
+              Update Username
+            </button>
+            {usernameStatus.message && (
+              <p className={usernameStatus.type === 'success' ? styles.successMsg : styles.errorMsg}>
+                {usernameStatus.message}
+              </p>
+            )}
+          </form>
+        </section>
+
+        {/* Password Update Section */}
+        <section className={styles.section}>
+          <h3 className={styles.sectionTitle}>Password</h3>
+          <form onSubmit={handlePasswordSubmit} className={styles.form}>
             <div className="grid grid-cols-2 gap-4">
               <div className={styles.inputGroup}>
                 <label className={styles.label}>Old Password</label>
@@ -312,7 +328,8 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onClose, onLogout }) =
                   className={styles.input}
                   value={oldPassword}
                   onChange={(e) => setOldPassword(e.target.value)}
-                  placeholder="Leave blank to keep unchanged"
+                  placeholder="Old password"
+                  required
                 />
               </div>
               <div className={styles.inputGroup}>
@@ -323,15 +340,16 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onClose, onLogout }) =
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
                   placeholder="New password"
+                  required
                 />
               </div>
             </div>
             <button type="submit" className={styles.submitBtn}>
-              Update Basic Info
+              Update Password
             </button>
-            {basicInfoStatus.message && (
-              <p className={basicInfoStatus.type === 'success' ? styles.successMsg : styles.errorMsg}>
-                {basicInfoStatus.message}
+            {passwordStatus.message && (
+              <p className={passwordStatus.type === 'success' ? styles.successMsg : styles.errorMsg}>
+                {passwordStatus.message}
               </p>
             )}
           </form>

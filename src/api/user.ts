@@ -1,10 +1,12 @@
 import api from '../api';
 
-export interface UserEdit {
-  user_name?: string;
-  old_password?: string;
-  new_password?: string;
-  email?: string;
+export interface UsernameEdit {
+  new_username: string;
+}
+
+export interface PasswordEdit {
+  old_password: string;
+  new_password: string;
 }
 
 export interface EmailEdit {
@@ -17,8 +19,13 @@ export const getUserInfo = async () => {
   return response.data;
 };
 
-export const editUserProfile = async (data: UserEdit) => {
-  const response = await api.put('/user/edit', data);
+export const editUserUsername = async (data: UsernameEdit) => {
+  const response = await api.put('/user/edit/username', data);
+  return response.data;
+};
+
+export const editUserPassword = async (data: PasswordEdit) => {
+  const response = await api.put('/user/edit/password', data);
   return response.data;
 };
 
