@@ -34,6 +34,7 @@ interface UseWebSocketReturn {
   messages: WSMessage[];
   friendRequests: NewChatMessage[];
   sendMessage: (receiverId: number, content: string, currentUserId: number) => void;
+  removeFriendRequest: (msgId: number) => void;
 }
 
 export const useWebSocket = (token: string | null): UseWebSocketReturn => {
@@ -81,6 +82,12 @@ export const useWebSocket = (token: string | null): UseWebSocketReturn => {
           if (data.data && data.data.msg_type === 'friend_apply') {
             console.log('🔔 成功拦截好友申请！放入专属列表。');
             setFriendRequests((prev) => [...prev, data]); // 塞进好友申请列表
+          } else if (data.data && data.data.msg_type === 'friend_accept') {
+            console.log('🔔 对方同意了好友申请！');
+            // 派发全局事件，通知 ContactContext 刷新好友列表
+            window.dispatchEvent(new CustomEvent('remote_friend_accept'));
+            // 依然放进聊天框，让 System Assistant 渲染通知卡片
+            setMessages((prev) => [...prev, data]);
           } else {
             // 如果是其他类型的新消息（比如普通文本），依然放进聊天框
             setMessages((prev) => [...prev, data]);
@@ -128,5 +135,10 @@ export const useWebSocket = (token: string | null): UseWebSocketReturn => {
     }
   }, []);
 
-  return { isConnected, messages, friendRequests, sendMessage };
+
+  const removeFriendRequest = useCallback((msgId: number) => {
+    setFriendRequests((prev) => prev.filter((req) => req.data.msg_id !== msgId));
+  }, []);
+
+  return { isConnected, messages, friendRequests, sendMessage, removeFriendRequest };
 };
