@@ -1,5 +1,5 @@
-import api from '../api';
-import { formatAvatarUrl } from '../utils/url';
+import api from './api';
+import { formatAvatarUrl } from './utils/url';
 
 // --- Interfaces ---
 

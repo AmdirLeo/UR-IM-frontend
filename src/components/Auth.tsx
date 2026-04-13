@@ -238,7 +238,7 @@ export const Auth: React.FC<AuthProps> = ({ onLoginSuccess }) => {
                 value={id}
                 onChange={(e) => setId(e.target.value)}
                 className={styles.input}
-                placeholder="1"
+                placeholder="e.g. 10001 or mail@example.com"
               />
             </div>
           </div>

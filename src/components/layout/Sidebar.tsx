@@ -38,7 +38,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   }, []);
 
   return (
-    <div className="w-[60px] min-w-[60px] h-full bg-secondary flex flex-col items-center py-4 justify-between border-r border-primary shrink-0 z-10">
+    <div style={{ backgroundColor: 'var(--sidebar-bg)' }} className="w-[60px] min-w-[60px] h-full flex flex-col items-center py-4 justify-between border-r border-primary shrink-0 z-10">
       {/* Top Icons */}
       <div className="flex flex-col items-center space-y-6">
         {/* Avatar */}
@@ -50,7 +50,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           {avatarSrc ? (
             <img src={avatarSrc} alt="Avatar" className="w-full h-full object-cover" />
           ) : (
-            <User className="text-tertiary w-8 h-8 mt-2" />
+            <User className="text-[var(--sidebar-text)] w-8 h-8 mt-2" />
           )}
         </div>
 
@@ -60,7 +60,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           onClick={() => onNavigate('messages')}
           title="Messages"
         >
-          <MessageCircle className={`w-6 h-6 transition-colors ${activeView === 'messages' ? 'text-brand' : 'text-secondary group-hover:text-primary'}`} />
+          <MessageCircle className={`w-6 h-6 transition-colors ${activeView === 'messages' ? 'text-[var(--sidebar-active-text)]' : 'text-[var(--sidebar-text)] group-hover:text-[var(--sidebar-hover-text)]'}`} />
           {/* Badge */}
           <div className="absolute -top-1 right-2 bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full border-2 border-primary">
             6
@@ -73,30 +73,30 @@ export const Sidebar: React.FC<SidebarProps> = ({
           onDoubleClick={() => forceRefresh()}
           title="Contacts"
         >
-          <Users className={`w-6 h-6 transition-colors ${activeView === 'contacts' ? 'text-brand' : 'text-secondary group-hover:text-primary'}`} />
+          <Users className={`w-6 h-6 transition-colors ${activeView === 'contacts' ? 'text-[var(--sidebar-active-text)]' : 'text-[var(--sidebar-text)] group-hover:text-[var(--sidebar-hover-text)]'}`} />
         </div>
       </div>
 
       {/* Bottom Icons */}
       <div className="flex flex-col items-center space-y-6 w-full">
         <div
-            className="cursor-pointer group flex flex-col items-center w-full relative"
-            title="Settings"
-            onClick={onOpenSettings}
+          className="cursor-pointer group flex flex-col items-center w-full relative"
+          title="Settings"
+          onClick={onOpenSettings}
         >
-            <Settings className="w-6 h-6 text-secondary group-hover:text-primary" />
+          <Settings className="w-6 h-6 text-[var(--sidebar-text)] group-hover:text-[var(--sidebar-hover-text)]" />
         </div>
 
         <div
-            className="relative flex flex-col items-center w-full"
-            ref={logoutRef}
+          className="relative flex flex-col items-center w-full"
+          ref={logoutRef}
         >
           <div
             className="cursor-pointer group"
             onClick={() => setShowLogoutConfirm(!showLogoutConfirm)}
             title="Log Out"
           >
-            <LogOut className="w-6 h-6 text-secondary hover:text-red-400" />
+            <LogOut className="w-6 h-6 text-[var(--sidebar-text)] hover:text-red-400" />
           </div>
 
           {/* Logout Confirmation Popover */}

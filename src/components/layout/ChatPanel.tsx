@@ -93,9 +93,9 @@ export const ChatPanel: React.FC<ChatPanelProps & { activeChatName?: string }> =
       {/* Message History Area */}
       <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
         {messages.length === 0 ? (
-           <div className="flex justify-center mt-10">
-             <span className="text-xs bg-secondary text-secondary px-3 py-1 rounded">No messages yet.</span>
-           </div>
+          <div className="flex justify-center mt-10">
+            <span className="text-xs bg-secondary text-secondary px-3 py-1 rounded">No messages yet.</span>
+          </div>
         ) : (
           messages.map((msg, idx) => {
             const isMe = msg.type === 'chat' && msg.sender_id?.toString() === currentUserId;
@@ -120,26 +120,25 @@ export const ChatPanel: React.FC<ChatPanelProps & { activeChatName?: string }> =
             return (
               <div key={idx} className={`flex ${isMe ? 'justify-end' : 'justify-start'} mb-4`}>
                 {!isMe && (
-                   <div className="w-9 h-9 bg-blue-500 rounded flex-shrink-0 mr-3 mt-1" />
+                  <div className="w-9 h-9 bg-blue-500 rounded flex-shrink-0 mr-3 mt-1" />
                 )}
 
                 <div className={`max-w-[70%] ${isMe ? 'bg-bubble-self text-primary' : 'bg-bubble-other text-primary'} rounded p-2.5 shadow-sm border ${isMe ? 'border-primary' : 'border-primary'} relative`}>
-                    {/* Tiny triangle pointer */}
-                    <div className={`absolute top-3 w-0 h-0 border-y-[6px] border-y-transparent ${
-                      isMe
-                        ? 'right-[-6px] border-l-[6px] border-l-[#95EC69] dark:border-l-[#2B2B2B]'
-                        : 'left-[-6px] border-r-[6px] border-r-white dark:border-r-[#202020]'
+                  {/* Tiny triangle pointer */}
+                  <div className={`absolute top-3 w-0 h-0 border-y-[6px] border-y-transparent ${isMe
+                      ? 'right-[-6px] border-l-[6px] border-l-[#95EC69] dark:border-l-[#2B2B2B]'
+                      : 'left-[-6px] border-r-[6px] border-r-white dark:border-r-[#202020]'
                     }`} />
 
-                    <p className="text-primary text-base leading-relaxed whitespace-pre-wrap word-break">
-                      {messageContent}
-                    </p>
+                  <p className="text-primary text-base leading-relaxed whitespace-pre-wrap word-break">
+                    {msg.content}
+                  </p>
                 </div>
 
                 {isMe && (
-                   <div className="w-9 h-9 bg-gray-300 rounded flex-shrink-0 ml-3 mt-1 flex items-center justify-center overflow-hidden">
-                       <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Felix" alt="avatar" />
-                   </div>
+                  <div className="w-9 h-9 bg-gray-300 rounded flex-shrink-0 ml-3 mt-1 flex items-center justify-center overflow-hidden">
+                    <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Felix" alt="avatar" />
+                  </div>
                 )}
               </div>
             );
@@ -173,11 +172,10 @@ export const ChatPanel: React.FC<ChatPanelProps & { activeChatName?: string }> =
           <button
             onClick={handleSend}
             disabled={!inputText.trim()}
-            className={`px-6 py-1.5 rounded text-[14px] font-medium transition-colors ${
-              inputText.trim()
+            className={`px-6 py-1.5 rounded text-[14px] font-medium transition-colors ${inputText.trim()
                 ? 'bg-secondary hover:bg-hover text-success'
                 : 'bg-secondary text-secondary border border-primary cursor-not-allowed'
-            }`}
+              }`}
           >
             Send
           </button>

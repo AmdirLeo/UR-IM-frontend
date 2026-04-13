@@ -1,29 +1,32 @@
 import React, { useEffect, useState } from 'react';
-import { X, Moon, Sun } from 'lucide-react';
+import { X } from 'lucide-react';
 
 interface SettingsOverlayProps {
   onClose: () => void;
 }
 
 export const SettingsOverlay: React.FC<SettingsOverlayProps> = ({ onClose }) => {
-  const [isDarkMode, setIsDarkMode] = useState(false);
+  const [selectedTheme, setSelectedTheme] = useState<'default' | 'purple' | 'dark'>('default');
 
   useEffect(() => {
-    // Check if dark mode is active
     if (document.documentElement.classList.contains('dark')) {
-      setIsDarkMode(true);
+      setSelectedTheme('dark');
+    } else if (document.documentElement.classList.contains('theme-purple')) {
+      setSelectedTheme('purple');
+    } else {
+      setSelectedTheme('default');
     }
   }, []);
 
-  const toggleDarkMode = () => {
-    if (isDarkMode) {
-      document.documentElement.classList.remove('dark');
-      localStorage.setItem('theme', 'light');
-    } else {
+  const applyTheme = (theme: 'default' | 'purple' | 'dark') => {
+    document.documentElement.classList.remove('dark', 'theme-purple');
+    if (theme === 'dark') {
       document.documentElement.classList.add('dark');
-      localStorage.setItem('theme', 'dark');
+    } else if (theme === 'purple') {
+      document.documentElement.classList.add('theme-purple');
     }
-    setIsDarkMode(!isDarkMode);
+    localStorage.setItem('theme', theme);
+    setSelectedTheme(theme);
   };
 
   return (
@@ -46,27 +49,37 @@ export const SettingsOverlay: React.FC<SettingsOverlayProps> = ({ onClose }) => 
 
             {/* Appearance Section */}
             <div>
-              <h3 className="text-sm font-medium text-secondary mb-4">Appearance</h3>
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-secondary">Dark Mode</span>
+              <h3 className="text-sm font-medium text-secondary mb-4">Theme</h3>
+              <div className="grid grid-cols-3 gap-3">
                 <button
-                  onClick={toggleDarkMode}
-                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                    isDarkMode ? 'bg-blue-600' : 'bg-gray-200 dark:bg-gray-600'
-                  }`}
-                >
-                  <span
-                    className={`inline-block h-4 w-4 transform rounded-full bg-primary transition-transform ${
-                      isDarkMode ? 'translate-x-6' : 'translate-x-1'
+                  type="button"
+                  onClick={() => applyTheme('default')}
+                  className={`rounded-lg px-3 py-2 text-sm font-medium transition ${selectedTheme === 'default'
+                    ? 'bg-brand text-white'
+                    : 'bg-gray-100 text-secondary hover:bg-gray-200'
                     }`}
-                  />
-                  {/* Icons inside the toggle for visual flair */}
-                  <span className={`absolute left-1 ${isDarkMode ? 'opacity-100' : 'opacity-0'} transition-opacity`}>
-                      <Moon className="w-3 h-3 text-white" />
-                  </span>
-                  <span className={`absolute right-1 ${isDarkMode ? 'opacity-0' : 'opacity-100'} transition-opacity`}>
-                      <Sun className="w-3 h-3 text-secondary" />
-                  </span>
+                >
+                  默认主题
+                </button>
+                <button
+                  type="button"
+                  onClick={() => applyTheme('purple')}
+                  className={`rounded-lg px-3 py-2 text-sm font-medium transition ${selectedTheme === 'purple'
+                    ? 'bg-[#7B1FA2] text-white'
+                    : 'bg-gray-100 text-secondary hover:bg-gray-200'
+                    }`}
+                >
+                  清华紫主题
+                </button>
+                <button
+                  type="button"
+                  onClick={() => applyTheme('dark')}
+                  className={`rounded-lg px-3 py-2 text-sm font-medium transition ${selectedTheme === 'dark'
+                    ? 'bg-slate-800 text-white'
+                    : 'bg-gray-100 text-secondary hover:bg-gray-200'
+                    }`}
+                >
+                  深色模式
                 </button>
               </div>
             </div>
