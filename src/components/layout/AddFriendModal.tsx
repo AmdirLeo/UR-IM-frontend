@@ -121,7 +121,24 @@ export const AddFriendModal: React.FC<AddFriendModalProps> = ({ isOpen, onClose 
 
                   {/* User Info */}
                   <div className="flex items-center space-x-3 overflow-hidden">
-                    <div className="w-10 h-10 rounded bg-blue-500 flex items-center justify-center shrink-0">
+                    {user.avatar_url ? (
+                      <img
+                        src={user.avatar_url}
+                        alt={user.username}
+                        className="w-10 h-10 rounded object-cover shrink-0"
+                        onError={(e) => {
+                          // Fallback to text if image fails to load
+                          const target = e.target as HTMLImageElement;
+                          target.style.display = 'none';
+                          const fallback = target.nextElementSibling as HTMLElement;
+                          if (fallback) fallback.style.display = 'flex';
+                        }}
+                      />
+                    ) : null}
+                    <div
+                      className="w-10 h-10 rounded bg-blue-500 flex items-center justify-center shrink-0"
+                      style={{ display: user.avatar_url ? 'none' : 'flex' }}
+                    >
                       <span className="text-white font-medium">
                         {user.username.charAt(0).toUpperCase()}
                       </span>

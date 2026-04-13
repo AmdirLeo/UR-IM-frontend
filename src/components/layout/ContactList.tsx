@@ -1,8 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Search, UserPlus, Users as UsersIcon, Plus } from 'lucide-react';
 import { AddFriendModal } from './AddFriendModal';
+import { FriendRequestsModal } from './FriendRequestsModal';
 import styles from './ContactList.module.css';
-import { FriendInfo, getFriendList } from '../../api/friend';
+import { FriendInfo } from '../../api/friend';
+import { useChatContext } from '../../context/ChatContext';
+import { useContactContext } from '../../context/ContactContext';
+import { FriendAvatar } from '../common/FriendAvatar';
 
 interface ContactListProps {
   activeContactId: number | null;
@@ -25,33 +29,16 @@ export const dummyFriends = [
 ];
 
 export const ContactList: React.FC<ContactListProps> = ({ activeContactId, onSelectContact, width }) => {
+  const { friendRequests } = useChatContext();
+  const { friends, loading, forceRefresh } = useContactContext();
   const [activeTab, setActiveTab] = useState<'friends' | 'groups'>('friends');
   const [searchTerm, setSearchTerm] = useState('');
   const [isAddFriendModalOpen, setIsAddFriendModalOpen] = useState(false);
-  const [friends, setFriends] = useState<FriendInfo[]>([]);
-  const [loading, setLoading] = useState(false);
-
-  const fetchFriends = async () => {
-    setLoading(true);
-    try {
-      const response = await getFriendList();
-      if (response.code === 200) {
-        setFriends(response.data || []);
-      }
-    } catch (error) {
-      console.error('Failed to fetch friends:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchFriends();
-  }, []);
+  const [isFriendRequestsModalOpen, setIsFriendRequestsModalOpen] = useState(false);
 
   const handleModalClose = () => {
     setIsAddFriendModalOpen(false);
-    fetchFriends(); // Refresh friends list just in case
+    forceRefresh(); // Refresh friends list just in case
   };
 
   const filteredFriends = friends.filter(friend =>
@@ -94,11 +81,24 @@ export const ContactList: React.FC<ContactListProps> = ({ activeContactId, onSel
 
       {/* Fixed Requests Section */}
       <div className={styles.requestsSection}>
-         <div className={styles.requestItem}>
-            <div className="w-10 h-10 rounded overflow-hidden flex-shrink-0 mr-3 bg-orange-400 flex items-center justify-center">
+         <div
+           className={styles.requestItem}
+           onClick={() => setIsFriendRequestsModalOpen(true)}
+         >
+            <div className="w-10 h-10 rounded overflow-hidden flex-shrink-0 mr-3 bg-orange-400 flex items-center justify-center relative">
               <UserPlus className="h-5 w-5 text-white" />
+              {friendRequests.length > 0 && (
+                <div className="absolute top-0 right-0 w-3 h-3 bg-red-500 rounded-full border-2 border-primary" />
+              )}
             </div>
-            <span className="text-base text-secondary">Friend Requests</span>
+            <div className="flex-1 flex items-center justify-between">
+              <span className="text-base text-secondary">Friend Requests</span>
+              {friendRequests.length > 0 && (
+                <span className="bg-red-500 text-white text-xs px-2 py-0.5 rounded-full font-medium">
+                  {friendRequests.length}
+                </span>
+              )}
+            </div>
          </div>
          <div className={styles.requestItem}>
             <div className="w-10 h-10 rounded overflow-hidden flex-shrink-0 mr-3 bg-green-500 flex items-center justify-center">
@@ -134,7 +134,7 @@ export const ContactList: React.FC<ContactListProps> = ({ activeContactId, onSel
           {activeTab === 'friends' ? 'My Friends' : 'My Groups'}
         </div>
 
-        {loading && activeTab === 'friends' ? (
+        {loading && activeTab === 'friends' && friends.length === 0 ? (
           <div className="p-4 text-center text-sm text-secondary">Loading...</div>
         ) : (
           currentList.map((contact) => {
@@ -143,6 +143,7 @@ export const ContactList: React.FC<ContactListProps> = ({ activeContactId, onSel
             const friendContact = contact as FriendInfo;
             const id = isGroup ? groupContact.id : friendContact.user_id;
             const name = isGroup ? groupContact.name : friendContact.username;
+            const avatarUrl = isGroup ? null : friendContact.avatar_url;
             const avatarColor = isGroup ? groupContact.avatarColor : 'bg-blue-400';
 
             return (
@@ -152,11 +153,17 @@ export const ContactList: React.FC<ContactListProps> = ({ activeContactId, onSel
                 className={`${styles.contactItem} ${activeContactId === id ? styles.contactItemActive : ''}`}
               >
                 {/* Avatar */}
-                <div className={`w-10 h-10 rounded overflow-hidden flex-shrink-0 mr-3 ${avatarColor}`}>
-                  <div className="w-full h-full flex items-center justify-center text-sm text-white font-bold opacity-90">
-                    {name.charAt(0)}
-                  </div>
-                </div>
+                {isGroup ? (
+                   <div className={`w-10 h-10 rounded overflow-hidden flex-shrink-0 mr-3 ${avatarColor}`}>
+                     <div className="w-full h-full flex items-center justify-center text-sm text-white font-bold opacity-90">
+                       {name.charAt(0)}
+                     </div>
+                   </div>
+                ) : (
+                   <div className="mr-3">
+                     <FriendAvatar userId={id} avatarUrl={avatarUrl} name={name} fallbackColorClass={avatarColor} />
+                   </div>
+                )}
 
                 {/* Content */}
                 <div className="flex-1 min-w-0 flex items-center">
@@ -173,6 +180,12 @@ export const ContactList: React.FC<ContactListProps> = ({ activeContactId, onSel
       <AddFriendModal
         isOpen={isAddFriendModalOpen}
         onClose={handleModalClose}
+      />
+
+      <FriendRequestsModal
+        isOpen={isFriendRequestsModalOpen}
+        onClose={() => setIsFriendRequestsModalOpen(false)}
+        onSuccess={() => forceRefresh()}
       />
     </div>
   );

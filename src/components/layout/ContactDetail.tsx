@@ -94,12 +94,10 @@ export const ContactDetail: React.FC<ContactDetailProps> = ({
            <p className="text-sm text-secondary mb-6">Loading details...</p>
         ) : friendDetails ? (
            <div className="mb-8 flex flex-col items-center">
-             <p className="text-xs text-secondary">Added: {new Date(friendDetails.created_at).toLocaleDateString()}</p>
-             {friendDetails.tags && friendDetails.tags.length > 0 && (
+             <p className="text-xs text-secondary">Added: {new Date(friendDetails.be_friend_time).toLocaleDateString()}</p>
+             {friendDetails.tag && (
                 <div className={styles.tagContainer}>
-                  {friendDetails.tags.map(tag => (
-                     <span key={tag} className={styles.tag}>{tag}</span>
-                  ))}
+                   <span className={styles.tag}>{friendDetails.tag}</span>
                 </div>
              )}
            </div>
