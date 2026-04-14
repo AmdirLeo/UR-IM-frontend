@@ -48,6 +48,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onClose, onLogout }) =
 
   // Delete Account State
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deletePassword, setDeletePassword] = useState('');
   const [deleteStatus, setDeleteStatus] = useState<{ type: 'success' | 'error' | null, message: string }>({ type: null, message: '' });
 
   // Populate data from context when mounted or updated
@@ -176,8 +177,14 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onClose, onLogout }) =
 
   const handleDeleteAccount = async () => {
     setDeleteStatus({ type: null, message: '' });
+
+    if (!deletePassword) {
+      setDeleteStatus({ type: 'error', message: 'Password is required to delete account.' });
+      return;
+    }
+
     try {
-      const response = await deleteUserAccount();
+      const response = await deleteUserAccount(deletePassword);
       if (response.code === 200) {
         onLogout();
       } else {
@@ -239,7 +246,14 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onClose, onLogout }) =
   return (
     <div className={styles.container}>
       <div className={styles.header}>
-        <h2 className={styles.title}>Edit Profile</h2>
+        <div>
+          <h2 className={styles.title}>Edit Profile</h2>
+          {userInfo?.id && (
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+              User ID: {userInfo.id}
+            </p>
+          )}
+        </div>
         <button className={styles.closeBtn} onClick={onClose} aria-label="Close">
           <X className="w-6 h-6" />
         </button>
@@ -357,7 +371,14 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onClose, onLogout }) =
 
         {/* Email Update Section */}
         <section className={styles.section}>
-          <h3 className={styles.sectionTitle}>Email Address</h3>
+          <div className="flex justify-between items-center mb-4">
+            <h3 className={`${styles.sectionTitle} mb-0`}>Email Address</h3>
+            {userInfo?.email && (
+              <span className="text-sm text-gray-500 dark:text-gray-400">
+                Current: {userInfo.email}
+              </span>
+            )}
+          </div>
           <form onSubmit={handleEmailSubmit} className={styles.form}>
             <div className={styles.inputGroup}>
               <label className={styles.label}>Current Password</label>
@@ -491,9 +512,22 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onClose, onLogout }) =
               <AlertTriangle className="w-6 h-6" />
               <h3 className="text-lg font-semibold">Delete Account</h3>
             </div>
-            <p className="text-secondary mb-6">
+            <p className="text-secondary mb-4">
               This action is irreversible. All your data will be permanently deleted. Are you sure you want to proceed?
             </p>
+
+            <div className={styles.inputGroup + ' mb-6'}>
+              <label className={styles.label}>Confirm Password</label>
+              <input
+                type="password"
+                className={styles.input}
+                value={deletePassword}
+                onChange={(e) => setDeletePassword(e.target.value)}
+                placeholder="Enter your password to confirm"
+                required
+              />
+            </div>
+
             {deleteStatus.message && (
               <p className={styles.errorMsg + ' mb-4'}>
                 {deleteStatus.message}
@@ -503,6 +537,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onClose, onLogout }) =
               <button
                 onClick={() => {
                   setShowDeleteModal(false);
+                  setDeletePassword('');
                   setDeleteStatus({ type: null, message: '' });
                 }}
                 className={styles.cancelBtn}
@@ -512,6 +547,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onClose, onLogout }) =
               <button
                 onClick={handleDeleteAccount}
                 className={styles.confirmDeleteBtn}
+                disabled={!deletePassword}
               >
                 Confirm Delete
               </button>

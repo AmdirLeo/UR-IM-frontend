@@ -42,7 +42,7 @@ export const editUserPortrait = async (file: File) => {
   return response.data;
 };
 
-export const deleteUserAccount = async () => {
-  const response = await api.post('/user/delete');
+export const deleteUserAccount = async (password: string) => {
+  const response = await api.post('/user/delete', { password });
   return response.data;
 };

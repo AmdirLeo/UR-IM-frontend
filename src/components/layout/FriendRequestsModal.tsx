@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { X, Check, XCircle, Loader2 } from 'lucide-react';
 import { useChatContext } from '../../context/ChatContext';
 import { handleFriendRequest } from '../../api/friend';
+import { formatAvatarUrl } from '../../utils/url';
 
 interface FriendRequestsModalProps {
   isOpen: boolean;
@@ -76,21 +77,27 @@ export const FriendRequestsModal: React.FC<FriendRequestsModalProps> = ({ isOpen
               }
 
               const msgId = req.data.msg_id;
-              // Provide fallback properties since different backends might use different keys for the friend request ID
+              // Parse the JSON object values directly
               const requestId = (parsedContent.request_id ?? parsedContent.apply_id ?? parsedContent.id ?? req.data.msg_id) as number;
-              const username = (parsedContent.username as string) || `User ${req.data.sender_id}`;
-              const message = (parsedContent.message as string) || 'No message';
+              const senderId = parsedContent.sender_id ?? req.data.sender_id;
+              const username = (parsedContent.username as string) || `User ID: ${senderId}`;
+              const message = (parsedContent.reason as string) || (parsedContent.message as string) || 'No message';
+              const avatarUrl = formatAvatarUrl(parsedContent.avatar as string | null);
 
               return (
                 <div key={msgId} className="flex flex-col p-3 hover:bg-gray-50 dark:hover:bg-secondary rounded-lg transition-colors border-b border-primary last:border-0">
                   <div className="flex items-center justify-between">
                     {/* User Info */}
                     <div className="flex items-center space-x-3 overflow-hidden">
-                      <div className="w-10 h-10 rounded bg-blue-500 flex items-center justify-center shrink-0">
-                        <span className="text-white font-medium">
-                          {username.charAt(0).toUpperCase()}
-                        </span>
-                      </div>
+                      {avatarUrl ? (
+                        <img src={avatarUrl} alt="avatar" className="w-10 h-10 rounded object-cover shrink-0" />
+                      ) : (
+                        <div className="w-10 h-10 rounded bg-blue-500 flex items-center justify-center shrink-0">
+                          <span className="text-white font-medium">
+                            {username.charAt(0).toUpperCase()}
+                          </span>
+                        </div>
+                      )}
                       <div className="flex flex-col min-w-0">
                         <span className="text-sm font-medium text-secondary truncate">
                           {username}

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Search, X, UserPlus, Loader2 } from 'lucide-react';
 import { searchUsers, sendFriendRequest } from '../../api/friend';
+import { formatAvatarUrl } from '../../utils/url';
 
 interface AddFriendModalProps {
   isOpen: boolean;
@@ -123,7 +124,7 @@ export const AddFriendModal: React.FC<AddFriendModalProps> = ({ isOpen, onClose 
                   <div className="flex items-center space-x-3 overflow-hidden">
                     {user.avatar_url ? (
                       <img
-                        src={user.avatar_url}
+                        src={formatAvatarUrl(user.avatar_url) || undefined}
                         alt={user.username}
                         className="w-10 h-10 rounded object-cover shrink-0"
                         onError={(e) => {

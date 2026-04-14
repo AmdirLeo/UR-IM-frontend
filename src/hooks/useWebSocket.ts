@@ -41,9 +41,24 @@ export const useWebSocket = (token: string | null): UseWebSocketReturn => {
   const [isConnected, setIsConnected] = useState(false);
   const [messages, setMessages] = useState<WSMessage[]>([]);
   // 👈 新增：专门存储好友申请的 State
-  const [friendRequests, setFriendRequests] = useState<NewChatMessage[]>([]);
+  const [friendRequests, setFriendRequests] = useState<NewChatMessage[]>(() => {
+    const cached = localStorage.getItem('cached_friend_requests');
+    if (cached) {
+      try {
+        return JSON.parse(cached);
+      } catch (e) {
+        console.error('Failed to parse cached friend requests:', e);
+      }
+    }
+    return [];
+  });
   const wsRef = useRef<WebSocket | null>(null);
   const pingIntervalRef = useRef<number | null>(null);
+
+  // Sync friend requests to localStorage whenever it changes
+  useEffect(() => {
+    localStorage.setItem('cached_friend_requests', JSON.stringify(friendRequests));
+  }, [friendRequests]);
 
   useEffect(() => {
     if (!token) return;

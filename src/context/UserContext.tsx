@@ -137,6 +137,7 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
       localStorage.removeItem('userInfo');
       localStorage.removeItem('cached_avatar_url');
       localStorage.removeItem('cached_avatar_data');
+      localStorage.removeItem('cached_friend_requests');
       setToken(null);
       setUserInfo(null);
       setIsAuthenticated(false);
