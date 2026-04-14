@@ -4,6 +4,7 @@ import { ChatList, dummyChats } from './ChatList';
 import { ChatPanel } from './ChatPanel';
 import { ContactList, dummyGroups } from './ContactList';
 import { ContactDetail } from './ContactDetail';
+import { TagManagementPanel } from './TagManagementPanel';
 import { useContactContext } from '../../context/ContactContext';
 import { useChatContext } from '../../context/ChatContext';
 import { SettingsOverlay } from './SettingsOverlay';
@@ -29,6 +30,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ currentUserId, username,
 
   // Contacts State
   const [activeContactId, setActiveContactId] = useState<number | null>(null);
+  const [contactViewMode, setContactViewMode] = useState<'contact' | 'tags'>('contact');
 
   // Layout State
   const [chatListWidth, setChatListWidth] = useState<number>(300);
@@ -89,6 +91,15 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ currentUserId, username,
     setActiveView(view);
   };
 
+  const handleSelectContact = (id: number) => {
+    setActiveContactId(id);
+    setContactViewMode('contact');
+  };
+
+  const handleSelectTagsView = () => {
+    setContactViewMode('tags');
+  };
+
   return (
     <div className="flex h-screen w-full bg-primary overflow-hidden font-sans relative">
       {showSettings && <SettingsOverlay onClose={() => setShowSettings(false)} />}
@@ -115,7 +126,9 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ currentUserId, username,
           ) : (
             <ContactList
               activeContactId={activeContactId}
-              onSelectContact={(id) => setActiveContactId(id)}
+              activeView={contactViewMode}
+              onSelectContact={handleSelectContact}
+              onSelectTagsView={handleSelectTagsView}
               width={chatListWidth}
             />
           )}
@@ -142,6 +155,10 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ currentUserId, username,
                 sendMessage={sendMessage}
               />
             )
+          ) : contactViewMode === 'tags' ? (
+            <div className="flex-1 min-w-[400px] h-full">
+              <TagManagementPanel />
+            </div>
           ) : (
             <ContactDetail
               contactId={activeContactId}

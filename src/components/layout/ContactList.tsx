@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Search, UserPlus, Users as UsersIcon, Plus } from 'lucide-react';
+import { Search, UserPlus, Users as UsersIcon, Plus, Tag } from 'lucide-react';
 import { AddFriendModal } from './AddFriendModal';
 import { FriendRequestsModal } from './FriendRequestsModal';
 import styles from './ContactList.module.css';
@@ -10,7 +10,9 @@ import { FriendAvatar } from '../common/FriendAvatar';
 
 interface ContactListProps {
   activeContactId: number | null;
+  activeView: 'contact' | 'tags';
   onSelectContact: (id: number) => void;
+  onSelectTagsView: () => void;
   width: number;
 }
 
@@ -20,7 +22,7 @@ export const dummyGroups = [
   { id: 203, name: '周末篮球俱乐部', avatarColor: 'bg-orange-500' },
 ];
 
-export const ContactList: React.FC<ContactListProps> = ({ activeContactId, onSelectContact, width }) => {
+export const ContactList: React.FC<ContactListProps> = ({ activeContactId, activeView, onSelectContact, onSelectTagsView, width }) => {
   const { friendRequests } = useChatContext();
   const { friends, loading, forceRefresh } = useContactContext();
   const [activeTab, setActiveTab] = useState<'friends' | 'groups'>('friends');
@@ -98,6 +100,15 @@ export const ContactList: React.FC<ContactListProps> = ({ activeContactId, onSel
             </div>
             <span className="text-base text-secondary">Group Requests</span>
          </div>
+         <div
+           className={`${styles.requestItem} ${activeView === 'tags' ? styles.requestItemActive : ''}`}
+           onClick={onSelectTagsView}
+         >
+            <div className="w-10 h-10 rounded overflow-hidden flex-shrink-0 mr-3 bg-blue-600 flex items-center justify-center">
+              <Tag className="h-5 w-5 text-white" />
+            </div>
+            <span className="text-base text-secondary">Tags</span>
+         </div>
       </div>
 
       {/* Tabs */}
@@ -142,7 +153,7 @@ export const ContactList: React.FC<ContactListProps> = ({ activeContactId, onSel
               <div
                 key={id}
                 onClick={() => onSelectContact(id)}
-                className={`${styles.contactItem} ${activeContactId === id ? styles.contactItemActive : ''}`}
+                className={`${styles.contactItem} ${activeContactId === id && activeView === 'contact' ? styles.contactItemActive : ''}`}
               >
                 {/* Avatar */}
                 {isGroup ? (
@@ -159,7 +170,7 @@ export const ContactList: React.FC<ContactListProps> = ({ activeContactId, onSel
 
                 {/* Content */}
                 <div className="flex-1 min-w-0 flex items-center">
-                    <span className={`${styles.contactName} ${activeContactId === id ? styles.contactNameActive : ''}`}>
+                    <span className={`${styles.contactName} ${activeContactId === id && activeView === 'contact' ? styles.contactNameActive : ''}`}>
                       {name}
                     </span>
                 </div>

@@ -30,7 +30,7 @@ export interface FriendInfo {
   avatar_url: string | null;
   status?: string; // e.g. "accepted"
   be_friend_time: string;
-  tag: string | null;
+  tags: string[];
 }
 
 export interface FriendListResponse {
@@ -116,9 +116,10 @@ export const getFriendList = async () => {
   if (data && Array.isArray(data.data)) {
     return {
       ...data,
-      data: data.data.map((friend: FriendInfo) => ({
+      data: data.data.map((friend: any) => ({
         ...friend,
         avatar_url: formatAvatarUrl(friend.avatar_url),
+        tags: friend.tag ? friend.tag.split(',').map((t: string) => t.trim()).filter((t: string) => t) : [], // Parse string into array
       })),
     };
   }
@@ -126,42 +127,53 @@ export const getFriendList = async () => {
 };
 
 export const createFriendTag = async (name: string) => {
-  const response = await api.post('/friend/friend/tag/new', { name });
+  const payload = { tag_name: name };
+  console.log('Request Payload:', payload);
+  const response = await api.post('/friend/friend/tag/new', payload);
   return response.data;
 };
 
 export const deleteFriendTag = async (name: string) => {
-  const response = await api.post('/friend/friend/tag/delete', { name });
+  const payload = { tag_name: name };
+  console.log('Request Payload:', payload);
+  const response = await api.post('/friend/friend/tag/delete', payload);
   return response.data;
 };
 
 export const addFriendToTag = async (name: string, friend_user_ids: number[]) => {
-  const response = await api.post('/friend/friend/tag/add', {
-    name,
-    friend_user_ids,
-  });
+  const payload = {
+    tag_name: name,
+    friend_ids: friend_user_ids,
+  };
+  console.log('Request Payload:', payload);
+  const response = await api.post('/friend/friend/tag/add', payload);
   return response.data;
 };
 
 export const queryFriendsByTag = async (name: string) => {
-  const response = await api.post('/friend/friend/tag/query', { name });
+  const payload = { tag_name: name };
+  console.log('Request Payload:', payload);
+  const response = await api.post('/friend/friend/tag/query', payload);
   const data = response.data;
   if (data && Array.isArray(data.data)) {
     return {
       ...data,
-      data: data.data.map((friend: FriendInfo) => ({
+      data: data.data.map((friend: any) => ({
         ...friend,
         avatar_url: formatAvatarUrl(friend.avatar_url),
+        tags: friend.tag ? friend.tag.split(',').map((t: string) => t.trim()).filter((t: string) => t) : [], // Parse string into array
       })),
     };
   }
   return data;
 };
 
-export const removeFriendFromTag = async (name: string, friend_user_ids: number[]) => {
-  const response = await api.post('/friend/friend/tag/remove', {
-    name,
-    friend_user_ids,
-  });
+export const removeFriendFromTag = async (name: string, friend_user_id: number) => {
+  const payload = {
+    tag_name: name,
+    friend_id: friend_user_id,
+  };
+  console.log('Request Payload:', payload);
+  const response = await api.post('/friend/friend/tag/remove', payload);
   return response.data;
 };
