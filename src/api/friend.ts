@@ -70,7 +70,7 @@ export interface TagRemoveFriendRequest {
 // --- API Functions ---
 
 export const searchUsers = async (keyword: string, page = 1, size = 20) => {
-  const response = await api.get('/friend/friend/search', {
+  const response = await api.get('/friend/search', {
     params: { keyword, page, size },
   });
   const data = response.data;
@@ -90,7 +90,7 @@ export const searchUsers = async (keyword: string, page = 1, size = 20) => {
 };
 
 export const sendFriendRequest = async (target_user_id: number, message?: string) => {
-  const response = await api.post('/friend/friend/apply', {
+  const response = await api.post('/friend/apply', {
     target_user_id,
     message,
   });
@@ -98,7 +98,7 @@ export const sendFriendRequest = async (target_user_id: number, message?: string
 };
 
 export const handleFriendRequest = async (request_id: number, action: 'accepted' | 'rejected') => {
-  const response = await api.put('/friend/friend/handle', {
+  const response = await api.put('/friend/handle', {
     request_id,
     action,
   });
@@ -106,12 +106,12 @@ export const handleFriendRequest = async (request_id: number, action: 'accepted'
 };
 
 export const removeFriend = async (friend_user_id: number) => {
-  const response = await api.delete(`/friend/friend/remove/${friend_user_id}`);
+  const response = await api.delete(`/friend/remove/${friend_user_id}`);
   return response.data;
 };
 
 export const getFriendList = async () => {
-  const response = await api.get('/friend/friend');
+  const response = await api.get('/friend');
   const data = response.data;
   if (data && Array.isArray(data.data)) {
     return {
@@ -129,14 +129,14 @@ export const getFriendList = async () => {
 export const createFriendTag = async (name: string) => {
   const payload = { tag_name: name };
   console.log('Request Payload:', payload);
-  const response = await api.post('/friend/friend/tag/new', payload);
+  const response = await api.post('/friend/tag/new', payload);
   return response.data;
 };
 
 export const deleteFriendTag = async (name: string) => {
   const payload = { tag_name: name };
   console.log('Request Payload:', payload);
-  const response = await api.post('/friend/friend/tag/delete', payload);
+  const response = await api.post('/friend/tag/delete', payload);
   return response.data;
 };
 
@@ -146,14 +146,14 @@ export const addFriendToTag = async (name: string, friend_user_ids: number[]) =>
     friend_ids: friend_user_ids,
   };
   console.log('Request Payload:', payload);
-  const response = await api.post('/friend/friend/tag/add', payload);
+  const response = await api.post('/friend/tag/add', payload);
   return response.data;
 };
 
 export const queryFriendsByTag = async (name: string) => {
   const payload = { tag_name: name };
   console.log('Request Payload:', payload);
-  const response = await api.post('/friend/friend/tag/query', payload);
+  const response = await api.post('/friend/tag/query', payload);
   const data = response.data;
   if (data && Array.isArray(data.data)) {
     return {
@@ -174,6 +174,6 @@ export const removeFriendFromTag = async (name: string, friend_user_id: number) 
     friend_id: friend_user_id,
   };
   console.log('Request Payload:', payload);
-  const response = await api.post('/friend/friend/tag/remove', payload);
+  const response = await api.post('/friend/tag/remove', payload);
   return response.data;
 };
