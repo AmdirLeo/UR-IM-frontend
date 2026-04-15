@@ -2,9 +2,11 @@ import React, { useState } from 'react';
 import { Sidebar, ViewMode } from './Sidebar';
 import { ChatList, dummyChats } from './ChatList';
 import { ChatPanel } from './ChatPanel';
-import { ContactList, dummyFriends, dummyGroups } from './ContactList';
+import { ContactList, dummyGroups } from './ContactList';
 import { ContactDetail } from './ContactDetail';
-import { useWebSocket } from '../../hooks/useWebSocket';
+import { TagManagementPanel } from './TagManagementPanel';
+import { useContactContext } from '../../context/ContactContext';
+import { useChatContext } from '../../context/ChatContext';
 import { SettingsOverlay } from './SettingsOverlay';
 import { UserProfile } from './UserProfile';
 
@@ -15,8 +17,9 @@ interface MainLayoutProps {
   onLogout: () => void;
 }
 
-export const MainLayout: React.FC<MainLayoutProps> = ({ currentUserId, username, token, onLogout }) => {
-  const { isConnected, messages, sendMessage } = useWebSocket(token);
+export const MainLayout: React.FC<MainLayoutProps> = ({ currentUserId, username, onLogout }) => {
+  const { isConnected, messages, sendMessage } = useChatContext();
+  const { friends } = useContactContext();
 
   // View State
   const [activeView, setActiveView] = useState<ViewMode>('messages');
@@ -27,6 +30,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ currentUserId, username,
 
   // Contacts State
   const [activeContactId, setActiveContactId] = useState<number | null>(null);
+  const [contactViewMode, setContactViewMode] = useState<'contact' | 'tags'>('contact');
 
   // Layout State
   const [chatListWidth, setChatListWidth] = useState<number>(300);
@@ -65,9 +69,12 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ currentUserId, username,
   }, [isResizingList]);
 
   // Derived state for ContactDetail
-  const activeContact =
-    dummyFriends.find((f: { id: number; name: string; avatarColor: string; }) => f.id === activeContactId) ||
-    dummyGroups.find((g: { id: number; name: string; avatarColor: string; }) => g.id === activeContactId);
+  const activeFriend = friends.find((f) => f.user_id === activeContactId);
+  const activeGroup = dummyGroups.find((g) => g.id === activeContactId);
+
+  const activeContactName = activeFriend?.username || activeGroup?.name;
+  const activeContactAvatarColor = activeGroup?.avatarColor; // Only groups have fallback color now, friends will use real avatar
+  const activeContactAvatarUrl = activeFriend?.avatar_url;
 
   const handleSendMessage = (contactId: number) => {
     // In a real app, this might create a new chat or find an existing one
@@ -82,6 +89,15 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ currentUserId, username,
       setPreviousView(activeView);
     }
     setActiveView(view);
+  };
+
+  const handleSelectContact = (id: number) => {
+    setActiveContactId(id);
+    setContactViewMode('contact');
+  };
+
+  const handleSelectTagsView = () => {
+    setContactViewMode('tags');
   };
 
   return (
@@ -110,7 +126,9 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ currentUserId, username,
           ) : (
             <ContactList
               activeContactId={activeContactId}
-              onSelectContact={(id) => setActiveContactId(id)}
+              activeView={contactViewMode}
+              onSelectContact={handleSelectContact}
+              onSelectTagsView={handleSelectTagsView}
               width={chatListWidth}
             />
           )}
@@ -137,11 +155,16 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ currentUserId, username,
                 sendMessage={sendMessage}
               />
             )
+          ) : contactViewMode === 'tags' ? (
+            <div className="flex-1 min-w-[400px] h-full">
+              <TagManagementPanel />
+            </div>
           ) : (
             <ContactDetail
               contactId={activeContactId}
-              contactName={activeContact?.name}
-              avatarColor={activeContact?.avatarColor}
+              contactName={activeContactName}
+              avatarColor={activeContactAvatarColor}
+              avatarUrl={activeContactAvatarUrl}
               onSendMessage={handleSendMessage}
             />
           )}

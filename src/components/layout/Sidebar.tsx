@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect, useContext } from 'react';
 import { User, MessageCircle, Users, Settings, LogOut } from 'lucide-react';
 import { UserContext } from '../../context/UserContext';
+import { useContactContext } from '../../context/ContactContext';
 
 export type ViewMode = 'messages' | 'contacts' | 'profile';
 
@@ -20,6 +21,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const logoutRef = useRef<HTMLDivElement>(null);
   const userContext = useContext(UserContext);
+  const { forceRefresh } = useContactContext();
   const avatarSrc = userContext?.userInfo?.avatar_url;
 
   useEffect(() => {
@@ -68,6 +70,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         <div
           className="cursor-pointer group flex flex-col items-center w-full"
           onClick={() => onNavigate('contacts')}
+          onDoubleClick={() => forceRefresh()}
           title="Contacts"
         >
           <Users className={`w-6 h-6 transition-colors ${activeView === 'contacts' ? 'text-[var(--sidebar-active-text)]' : 'text-[var(--sidebar-text)] group-hover:text-[var(--sidebar-hover-text)]'}`} />

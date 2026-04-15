@@ -2,6 +2,7 @@ import { useEffect, useContext } from 'react';
 import { Auth } from './components/Auth';
 import { MainLayout } from './components/layout/MainLayout';
 import { UserContext } from './context/UserContext';
+import { ChatProvider } from './context/ChatContext';
 import loginLightImg from './assets/images/login-light.png';
 import loginDarkImg from './assets/images/login-dark.png';
 
@@ -42,12 +43,14 @@ function AppContent() {
 
   // The MainLayout now wraps the sidebar, chat list, and chat panel
   return (
-    <MainLayout
-      currentUserId={userInfo?.id?.toString() || ''}
-      username={userInfo?.username || ''}
-      token={token}
-      onLogout={logout}
-    />
+    <ChatProvider token={token}>
+      <MainLayout
+        currentUserId={userInfo?.id?.toString() || ''}
+        username={userInfo?.username || ''}
+        token={token}
+        onLogout={logout}
+      />
+    </ChatProvider>
   );
 }
 

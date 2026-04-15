@@ -111,8 +111,12 @@ export const ChatPanel: React.FC<ChatPanelProps & { activeChatName?: string }> =
               );
             }
 
-            // Get content based on message type
-            const content = msg.type === 'NEW_CHAT_MESSAGE' ? msg.data.content : msg.content;
+            let messageContent = '';
+            if (msg.type === 'chat' || msg.type === 'private' || msg.type === 'broadcast') {
+              messageContent = msg.content;
+            } else if (msg.type === 'NEW_CHAT_MESSAGE') {
+              messageContent = msg.data.content;
+            }
 
             return (
               <div key={idx} className={`flex ${isMe ? 'justify-end' : 'justify-start'} mb-4`}>
@@ -128,7 +132,7 @@ export const ChatPanel: React.FC<ChatPanelProps & { activeChatName?: string }> =
                     }`} />
 
                   <p className="text-primary text-base leading-relaxed whitespace-pre-wrap word-break">
-                    {content}
+                    {messageContent}
                   </p>
                 </div>
 
