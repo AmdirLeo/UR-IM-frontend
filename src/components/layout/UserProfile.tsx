@@ -1,9 +1,12 @@
-import React, { useState, useRef, useContext, useEffect } from 'react';
-import { X, Upload, AlertTriangle } from 'lucide-react';
+import React, { useState, useRef, useContext, useEffect, useCallback } from 'react';
+import { X, Upload, AlertTriangle, Check } from 'lucide-react';
+import Cropper from 'react-easy-crop';
+import type { Area } from 'react-easy-crop';
 import styles from './UserProfile.module.css';
 import { editUserProfile, editUserEmail, editUserPortrait, deleteUserAccount } from '../../api/user';
 import { UserEdit, EmailEdit } from '../../api/user';
 import { UserContext } from '../../context/UserContext';
+import getCroppedImg from '../../utils/cropImage';
 
 interface UserProfileProps {
   onClose: () => void;
@@ -33,6 +36,13 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onClose, onLogout }) =
   const [portraitFile, setPortraitFile] = useState<File | null>(null);
   const [portraitPreview, setPortraitPreview] = useState<string | null>(null);
   const [portraitStatus, setPortraitStatus] = useState<{ type: 'success' | 'error' | null, message: string }>({ type: null, message: '' });
+
+  // Cropper State
+  const [cropImageSrc, setCropImageSrc] = useState<string | null>(null);
+  const [crop, setCrop] = useState({ x: 0, y: 0 });
+  const [zoom, setZoom] = useState(1);
+  const [croppedAreaPixels, setCroppedAreaPixels] = useState<Area | null>(null);
+  const [showCropModal, setShowCropModal] = useState(false);
 
   // Delete Account State
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -114,12 +124,41 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onClose, onLogout }) =
   const handlePortraitChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      setPortraitFile(file);
       const reader = new FileReader();
       reader.onloadend = () => {
-        setPortraitPreview(reader.result as string);
+        setCropImageSrc(reader.result as string);
+        setShowCropModal(true);
+        // clear input so same file can be selected again
+        if (fileInputRef.current) {
+          fileInputRef.current.value = '';
+        }
       };
       reader.readAsDataURL(file);
+    }
+  };
+
+  const onCropComplete = useCallback((_croppedArea: Area, croppedAreaPixels: Area) => {
+    setCroppedAreaPixels(croppedAreaPixels);
+  }, []);
+
+  const handleCropConfirm = async () => {
+    if (!cropImageSrc || !croppedAreaPixels) return;
+
+    try {
+      const croppedFile = await getCroppedImg(cropImageSrc, croppedAreaPixels);
+      if (croppedFile) {
+        setPortraitFile(croppedFile);
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          setPortraitPreview(reader.result as string);
+        };
+        reader.readAsDataURL(croppedFile);
+      }
+      setShowCropModal(false);
+      setCropImageSrc(null);
+    } catch (e) {
+      console.error(e);
+      setPortraitStatus({ type: 'error', message: 'Failed to crop image.' });
     }
   };
 
@@ -150,55 +189,15 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onClose, onLogout }) =
     }
 
     try {
-      // Client-side image resizing
-      const resizedFile = await new Promise<File>((resolve, reject) => {
-        const img = new Image();
-        img.onload = () => {
-          const canvas = document.createElement('canvas');
-          canvas.width = 256;
-          canvas.height = 256;
-          const ctx = canvas.getContext('2d');
-          if (!ctx) {
-            reject(new Error('Failed to get canvas context'));
-            return;
-          }
-          // Draw and resize image
-          ctx.drawImage(img, 0, 0, 256, 256);
-          // Convert back to File
-          canvas.toBlob((blob) => {
-            if (blob) {
-              // Swap extension to .webp
-              const oldName = portraitFile.name;
-              const newName = oldName.substring(0, oldName.lastIndexOf('.')) + '.webp';
-              const newFile = new File([blob], newName || 'portrait.webp', {
-                type: 'image/webp',
-                lastModified: Date.now(),
-              });
-              resolve(newFile);
-            } else {
-              reject(new Error('Failed to create blob'));
-            }
-          }, 'image/webp', 0.9);
-        };
-        img.onerror = () => {
-          URL.revokeObjectURL(img.src);
-          reject(new Error('Failed to load image'));
-        };
-        const objUrl = URL.createObjectURL(portraitFile);
-        img.src = objUrl;
-
-        // Ensure cleanup after onload/onerror logic completes
-        img.addEventListener('load', () => URL.revokeObjectURL(objUrl));
-      });
-
-      const response = await editUserPortrait(resizedFile);
+      // Image is already resized and formatted by getCroppedImg
+      const response = await editUserPortrait(portraitFile);
 
       // Convert resized file to base64 for immediate caching
       const base64data = await new Promise<string>((resolve, reject) => {
         const reader = new FileReader();
         reader.onloadend = () => resolve(reader.result as string);
         reader.onerror = reject;
-        reader.readAsDataURL(resizedFile);
+        reader.readAsDataURL(portraitFile);
       });
 
       // Cache the new base64 data and the url locally
@@ -395,6 +394,76 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onClose, onLogout }) =
         </section>
 
       </div>
+
+      {/* Crop Modal */}
+      {showCropModal && cropImageSrc && (
+        <div className={styles.modalOverlay} style={{ zIndex: 100 }}>
+          <div className={`${styles.modalContent} flex flex-col`} style={{ maxWidth: '500px', height: '600px', padding: '1.5rem' }}>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-primary">Crop Portrait</h3>
+              <button
+                onClick={() => {
+                  setShowCropModal(false);
+                  setCropImageSrc(null);
+                }}
+                className="text-secondary hover:text-primary transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="relative flex-1 w-full bg-black/10 rounded-lg overflow-hidden mb-6">
+              <Cropper
+                image={cropImageSrc}
+                crop={crop}
+                zoom={zoom}
+                aspect={1}
+                cropShape="round"
+                showGrid={false}
+                onCropChange={setCrop}
+                onCropComplete={onCropComplete}
+                onZoomChange={setZoom}
+              />
+            </div>
+
+            <div className="flex items-center gap-4 mb-6">
+              <label className="text-sm text-secondary font-medium whitespace-nowrap">Zoom</label>
+              <input
+                type="range"
+                value={zoom}
+                min={1}
+                max={3}
+                step={0.1}
+                aria-labelledby="Zoom"
+                onChange={(e) => {
+                  setZoom(Number(e.target.value));
+                }}
+                className="w-full h-2 bg-[var(--border-color)] rounded-lg appearance-none cursor-pointer"
+              />
+            </div>
+
+            <div className="flex justify-end gap-3 mt-auto">
+              <button
+                onClick={() => {
+                  setShowCropModal(false);
+                  setCropImageSrc(null);
+                }}
+                className={styles.cancelBtn}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleCropConfirm}
+                className={styles.submitBtn + ' flex items-center justify-center gap-2 m-0'}
+                style={{ marginTop: 0 }}
+              >
+                <Check className="w-4 h-4" />
+                Confirm Crop
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Delete Confirmation Modal */}
       {showDeleteModal && (
