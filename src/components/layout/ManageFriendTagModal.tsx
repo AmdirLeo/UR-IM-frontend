@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X, Tag } from 'lucide-react';
 import { useContactContext } from '../../context/ContactContext';
 import { addFriendToTag, removeFriendFromTag } from '../../api/friend';
@@ -21,21 +21,10 @@ export const ManageFriendTagModal: React.FC<ManageFriendTagModalProps> = ({
   currentTags,
   onSuccess
 }) => {
-  const { friends } = useContactContext();
+  const { tags } = useContactContext();
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  // Derive all available tags in the system
-  const allAvailableTags = useMemo(() => {
-    const map = new Set<string>();
-    friends.forEach(friend => {
-      if (friend.tags && friend.tags.length > 0) {
-        friend.tags.forEach(t => map.add(t));
-      }
-    });
-    return Array.from(map).sort();
-  }, [friends]);
 
   useEffect(() => {
     if (isOpen) {
@@ -108,13 +97,13 @@ export const ManageFriendTagModal: React.FC<ManageFriendTagModalProps> = ({
             </div>
           )}
 
-          {allAvailableTags.length === 0 ? (
+          {tags.length === 0 ? (
             <div className={styles.emptyState}>
               No tags available in the system. Create tags first from the Tag Management panel.
             </div>
           ) : (
             <div className={styles.tagList}>
-              {allAvailableTags.map(tag => (
+              {tags.map(tag => (
                 <label key={tag} className={styles.tagItem}>
                   <div className={styles.tagLabel}>
                     <Tag className="w-4 h-4 mr-2 text-blue-500" />

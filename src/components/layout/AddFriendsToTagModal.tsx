@@ -1,19 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import { X, Search } from 'lucide-react';
 import { useContactContext } from '../../context/ContactContext';
-import { createFriendTag, addFriendToTag } from '../../api/friend';
+import { addFriendToTag } from '../../api/friend';
 import { FriendAvatar } from '../common/FriendAvatar';
-import styles from './CreateTagModal.module.css';
+import styles from './AddFriendsToTagModal.module.css';
 
-interface CreateTagModalProps {
+interface AddFriendsToTagModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSuccess: (tagName: string, selectedFriendIds: number[]) => void;
+  tagName: string;
+  onSuccess: () => void;
 }
 
-export const CreateTagModal: React.FC<CreateTagModalProps> = ({ isOpen, onClose, onSuccess }) => {
+export const AddFriendsToTagModal: React.FC<AddFriendsToTagModalProps> = ({ isOpen, onClose, tagName, onSuccess }) => {
   const { friends } = useContactContext();
-  const [tagName, setTagName] = useState('');
   const [selectedFriendIds, setSelectedFriendIds] = useState<number[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -22,7 +22,6 @@ export const CreateTagModal: React.FC<CreateTagModalProps> = ({ isOpen, onClose,
   // Reset state when modal opens/closes
   useEffect(() => {
     if (isOpen) {
-      setTagName('');
       setSelectedFriendIds([]);
       setSearchTerm('');
       setError(null);
@@ -31,7 +30,8 @@ export const CreateTagModal: React.FC<CreateTagModalProps> = ({ isOpen, onClose,
 
   if (!isOpen) return null;
 
-  const filteredFriends = friends.filter(friend =>
+  const availableFriends = friends.filter(friend => !friend.tags?.includes(tagName));
+  const filteredFriends = availableFriends.filter(friend =>
     friend.username.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
@@ -42,8 +42,8 @@ export const CreateTagModal: React.FC<CreateTagModalProps> = ({ isOpen, onClose,
   };
 
   const handleSubmit = async () => {
-    if (!tagName.trim()) {
-      setError('Tag name is required');
+    if (selectedFriendIds.length === 0) {
+      setError('Please select at least one friend to assign to this tag');
       return;
     }
 
@@ -51,24 +51,15 @@ export const CreateTagModal: React.FC<CreateTagModalProps> = ({ isOpen, onClose,
     setError(null);
 
     try {
-      // 1. Create the tag
-      const createResponse = await createFriendTag(tagName.trim());
-      if (createResponse.code !== 200) {
-         throw new Error(createResponse.msg || 'Failed to create tag');
+      const addResponse = await addFriendToTag(tagName, selectedFriendIds);
+      if (addResponse.code !== 200) {
+         throw new Error(addResponse.msg || 'Failed to assign friends to tag');
       }
 
-      // 2. Assign friends to the tag, if any are selected
-      if (selectedFriendIds.length > 0) {
-        const addResponse = await addFriendToTag(tagName.trim(), selectedFriendIds);
-        if (addResponse.code !== 200) {
-           throw new Error(addResponse.msg || 'Failed to assign friends to tag');
-        }
-      }
-
-      onSuccess(tagName.trim(), selectedFriendIds);
+      onSuccess();
       onClose();
     } catch (err: any) {
-      setError(err.message || 'An error occurred during tag creation');
+      setError(err.message || 'An error occurred during tag assignment');
       console.error(err);
     } finally {
       setSubmitting(false);
@@ -79,7 +70,7 @@ export const CreateTagModal: React.FC<CreateTagModalProps> = ({ isOpen, onClose,
     <div className={styles.modalOverlay}>
       <div className={styles.modalContent}>
         <div className={styles.modalHeader}>
-          <h2 className={styles.modalTitle}>Create New Tag</h2>
+          <h2 className={styles.modalTitle}>Add Friends to Tag</h2>
           <button onClick={onClose} className={styles.closeButton}>
             <X className="w-5 h-5" />
           </button>
@@ -92,17 +83,9 @@ export const CreateTagModal: React.FC<CreateTagModalProps> = ({ isOpen, onClose,
             </div>
           )}
 
-          <div className={styles.formGroup}>
-            <label className={styles.label}>Tag Name</label>
-            <input
-              type="text"
-              className={styles.input}
-              placeholder="Enter tag name..."
-              value={tagName}
-              onChange={(e) => setTagName(e.target.value)}
-              maxLength={20}
-              autoFocus
-            />
+          <div className="mb-4">
+            <span className="text-sm text-gray-500">Adding friends to tag: </span>
+            <span className="font-semibold text-primary">{tagName}</span>
           </div>
 
           <div className={styles.formGroup}>
@@ -126,9 +109,9 @@ export const CreateTagModal: React.FC<CreateTagModalProps> = ({ isOpen, onClose,
             </div>
 
             <div className={styles.friendList}>
-              {friends.length === 0 ? (
+              {availableFriends.length === 0 ? (
                 <div className="p-4 text-center text-sm text-gray-500">
-                  No friends available.
+                  All your friends are already in this tag or you have no friends.
                 </div>
               ) : filteredFriends.length === 0 ? (
                 <div className="p-4 text-center text-sm text-gray-500">
@@ -171,9 +154,9 @@ export const CreateTagModal: React.FC<CreateTagModalProps> = ({ isOpen, onClose,
           <button
             onClick={handleSubmit}
             className={styles.submitButton}
-            disabled={submitting || !tagName.trim()}
+            disabled={submitting || selectedFriendIds.length === 0}
           >
-            {submitting ? 'Creating...' : selectedFriendIds.length === 0 ? 'Create Tag' : 'Create & Assign'}
+            {submitting ? 'Adding...' : 'Add Friends'}
           </button>
         </div>
       </div>

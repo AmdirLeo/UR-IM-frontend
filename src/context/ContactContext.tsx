@@ -1,5 +1,5 @@
 import React, { createContext, useState, useEffect, ReactNode, useContext, useCallback } from 'react';
-import { getFriendList, FriendInfo } from '../api/friend';
+import { getFriendList, getFriendTags, FriendInfo } from '../api/friend';
 import { saveAvatar } from '../utils/avatarDB';
 import { UserContext } from './UserContext';
 
@@ -14,8 +14,10 @@ const fileToBase64 = (blob: Blob): Promise<string> => {
 
 interface ContactContextType {
   friends: FriendInfo[];
+  tags: string[];
   loading: boolean;
   forceRefresh: () => Promise<void>;
+  setTags: React.Dispatch<React.SetStateAction<string[]>>;
 }
 
 export const ContactContext = createContext<ContactContextType | undefined>(undefined);
@@ -26,6 +28,7 @@ interface ContactProviderProps {
 
 export const ContactProvider: React.FC<ContactProviderProps> = ({ children }) => {
   const [friends, setFriends] = useState<FriendInfo[]>([]);
+  const [tags, setTags] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const userContext = useContext(UserContext);
   const isAuthenticated = userContext?.isAuthenticated;
@@ -45,9 +48,17 @@ export const ContactProvider: React.FC<ContactProviderProps> = ({ children }) =>
   const forceRefresh = useCallback(async () => {
     setLoading(true);
     try {
-      const response = await getFriendList();
-      if (response.code === 200 && Array.isArray(response.data)) {
-        const freshFriends: FriendInfo[] = response.data;
+      const [friendsResponse, tagsResponse] = await Promise.all([
+        getFriendList(),
+        getFriendTags()
+      ]);
+
+      if (tagsResponse.code === 200 && Array.isArray(tagsResponse.data)) {
+        setTags(tagsResponse.data);
+      }
+
+      if (friendsResponse.code === 200 && Array.isArray(friendsResponse.data)) {
+        const freshFriends: FriendInfo[] = friendsResponse.data;
 
         // Cache meta data in localStorage
         localStorage.setItem('friend_list_meta', JSON.stringify(freshFriends));
@@ -93,6 +104,7 @@ export const ContactProvider: React.FC<ContactProviderProps> = ({ children }) =>
     } else {
         // Clear friends when logged out
         setFriends([]);
+        setTags([]);
         localStorage.removeItem('friend_list_meta');
         // Note: we don't clear avatars from IndexedDB on logout, it acts as a permanent cache
     }
@@ -113,7 +125,7 @@ export const ContactProvider: React.FC<ContactProviderProps> = ({ children }) =>
   }, [isAuthenticated, forceRefresh]);
 
   return (
-    <ContactContext.Provider value={{ friends, loading, forceRefresh }}>
+    <ContactContext.Provider value={{ friends, tags, loading, forceRefresh, setTags }}>
       {children}
     </ContactContext.Provider>
   );
