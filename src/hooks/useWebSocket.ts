@@ -35,6 +35,7 @@ interface UseWebSocketReturn {
   friendRequests: NewChatMessage[];
   sendMessage: (receiverId: number, content: string, currentUserId: number) => void;
   removeFriendRequest: (msgId: number) => void;
+  removeMessagesWithUser: (userId: number) => void;
 }
 
 export const useWebSocket = (token: string | null): UseWebSocketReturn => {
@@ -85,28 +86,37 @@ export const useWebSocket = (token: string | null): UseWebSocketReturn => {
     ws.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data);
-        console.log('📥 收到后端消息:', data); 
-        
+        console.log('📥 收到后端消息:', data);
+
         // 分流逻辑开始
         if (['chat', 'system', 'private', 'broadcast'].includes(data.type)) {
           // 常规的旧版消息，直接进聊天框
           setMessages((prev) => [...prev, data]);
-          
+
         } else if (data.type === 'NEW_CHAT_MESSAGE') {
-          // 拦截到新版结构，向内剥开一层判断 msg_type
-          if (data.data && data.data.msg_type === 'friend_apply') {
+
+          const innerData = data.data;
+
+          // 1. 拦截卡片类消息 (好友申请)
+          if (innerData?.msg_type === 'card' && innerData?.extra?.card_type === 'friend_apply') {
             console.log('🔔 成功拦截好友申请！放入专属列表。');
-            setFriendRequests((prev) => [...prev, data]); // 塞进好友申请列表
-          } else if (data.data && data.data.msg_type === 'friend_accept') {
-            console.log('🔔 对方同意了好友申请！');
-            // 派发全局事件，通知 ContactContext 刷新好友列表
-            window.dispatchEvent(new CustomEvent('remote_friend_accept'));
-            // 依然放进聊天框，让 System Assistant 渲染通知卡片
-            setMessages((prev) => [...prev, data]);
-          } else {
-            // 如果是其他类型的新消息（比如普通文本），依然放进聊天框
-            setMessages((prev) => [...prev, data]);
+            setFriendRequests((prev) => [...prev, data]);
+            return; // 提前退出，别塞进聊天框
           }
+
+          // 2. 拦截通知类消息 (同意好友) - ⚠️ 注意：根据之前的后端文档，同意好友可能是 notify + action
+          if (
+            (innerData?.msg_type === 'notify' && innerData?.extra?.action === 'friend_accept') ||
+            (innerData?.msg_type === 'card' && innerData?.extra?.card_type === 'friend_accept') // 兼容你之前的写法
+          ) {
+            console.log('🔔 对方同意了好友申请！');
+            window.dispatchEvent(new CustomEvent('remote_friend_accept'));
+            setMessages((prev) => [...prev, data]);
+            return;
+          }
+
+          // 3. 其他类型的 NEW_CHAT_MESSAGE（文本、图片等常规消息）
+          setMessages((prev) => [...prev, data]);
         }
       } catch (err) {
         console.error('Failed to parse WebSocket message:', err);
@@ -155,5 +165,16 @@ export const useWebSocket = (token: string | null): UseWebSocketReturn => {
     setFriendRequests((prev) => prev.filter((req) => req.data.msg_id !== msgId));
   }, []);
 
-  return { isConnected, messages, friendRequests, sendMessage, removeFriendRequest };
+  const removeMessagesWithUser = useCallback((userId: number) => {
+    setMessages((prev) => prev.filter((msg) => {
+      if (msg.type === 'NEW_CHAT_MESSAGE') {
+        const senderId = msg.data.sender_id;
+        const receiverId = msg.data.conversation_id;
+        return senderId !== userId && receiverId !== userId;
+      }
+      return true;
+    }));
+  }, []);
+
+  return { isConnected, messages, friendRequests, sendMessage, removeFriendRequest, removeMessagesWithUser };
 };

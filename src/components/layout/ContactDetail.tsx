@@ -33,12 +33,12 @@ export const ContactDetail: React.FC<ContactDetailProps> = ({
       try {
         const response = await getFriendList();
         if (response.code === 200) {
-           const friend = response.data.find((f: FriendInfo) => f.user_id === contactId);
-           if (friend) {
-             setFriendDetails(friend);
-           } else {
-             setFriendDetails(null);
-           }
+          const friend = response.data.find((f: FriendInfo) => f.user_id === contactId);
+          if (friend) {
+            setFriendDetails(friend);
+          } else {
+            setFriendDetails(null);
+          }
         }
       } catch (error) {
         console.error("Failed to fetch friend details", error);
@@ -58,8 +58,13 @@ export const ContactDetail: React.FC<ContactDetailProps> = ({
       setRemoving(true);
       try {
         await removeFriend(contactId);
-        // We'd ideally need a way to notify the parent to clear selection and refresh list
-        alert('Friend removed successfully. Please refresh the page or click a different contact.');
+        // Refresh friend list and clear selection
+        await forceRefresh();
+        // Clear the active contact selection
+        // Note: This requires the parent component to handle clearing the selection
+        // For now, we'll emit a custom event that the parent can listen to
+        window.dispatchEvent(new CustomEvent('friendRemoved', { detail: { friendId: contactId } }));
+        alert('Friend removed successfully.');
       } catch (error) {
         console.error("Failed to remove friend", error);
         alert('Failed to remove friend');
@@ -110,42 +115,42 @@ export const ContactDetail: React.FC<ContactDetailProps> = ({
         </p>
 
         {loading ? (
-           <p className="text-sm text-secondary mb-6">Loading details...</p>
+          <p className="text-sm text-secondary mb-6">Loading details...</p>
         ) : friendDetails ? (
-           <div className="mb-8 flex flex-col items-center w-full max-w-xs">
-             <p className="text-xs text-secondary mb-3">Added: {new Date(friendDetails.be_friend_time).toLocaleDateString()}</p>
+          <div className="mb-8 flex flex-col items-center w-full max-w-xs">
+            <p className="text-xs text-secondary mb-3">Added: {new Date(friendDetails.be_friend_time).toLocaleDateString()}</p>
 
-             {/* Tag Section */}
-             <div className="w-full bg-gray-50 rounded-lg p-3 border border-gray-100 flex flex-col items-center">
-               <div className="flex items-center justify-between w-full mb-2">
-                 <div className="flex items-center text-sm font-medium text-gray-700">
-                   <Tag className="w-4 h-4 mr-1 text-gray-400" />
-                   Tags
-                 </div>
-                 <button
-                   onClick={() => setIsManageTagModalOpen(true)}
-                   className="text-xs flex items-center text-blue-500 hover:text-blue-600 font-medium bg-blue-50 px-2 py-1 rounded"
-                 >
-                   <Edit3 className="w-3 h-3 mr-1" />
-                   Edit
-                 </button>
-               </div>
+            {/* Tag Section */}
+            <div className="w-full bg-gray-50 rounded-lg p-3 border border-gray-100 flex flex-col items-center">
+              <div className="flex items-center justify-between w-full mb-2">
+                <div className="flex items-center text-sm font-medium text-gray-700">
+                  <Tag className="w-4 h-4 mr-1 text-gray-400" />
+                  Tags
+                </div>
+                <button
+                  onClick={() => setIsManageTagModalOpen(true)}
+                  className="text-xs flex items-center text-blue-500 hover:text-blue-600 font-medium bg-blue-50 px-2 py-1 rounded"
+                >
+                  <Edit3 className="w-3 h-3 mr-1" />
+                  Edit
+                </button>
+              </div>
 
-               <div className="flex flex-wrap justify-center gap-2 mt-1 w-full">
-                  {friendDetails.tags && friendDetails.tags.length > 0 ? (
-                    friendDetails.tags.map((tag, idx) => (
-                      <span key={idx} className="px-2.5 py-1 bg-white text-blue-700 text-xs rounded-md border border-blue-200 shadow-sm">
-                        {tag}
-                      </span>
-                    ))
-                  ) : (
-                    <span className="text-xs text-gray-400 italic py-1">No tags assigned</span>
-                  )}
-               </div>
-             </div>
-           </div>
+              <div className="flex flex-wrap justify-center gap-2 mt-1 w-full">
+                {friendDetails.tags && friendDetails.tags.length > 0 ? (
+                  friendDetails.tags.map((tag, idx) => (
+                    <span key={idx} className="px-2.5 py-1 bg-white text-blue-700 text-xs rounded-md border border-blue-200 shadow-sm">
+                      {tag}
+                    </span>
+                  ))
+                ) : (
+                  <span className="text-xs text-gray-400 italic py-1">No tags assigned</span>
+                )}
+              </div>
+            </div>
+          </div>
         ) : (
-           <div className="mb-8"></div>
+          <div className="mb-8"></div>
         )}
 
         {/* Action Button */}
@@ -178,8 +183,8 @@ export const ContactDetail: React.FC<ContactDetailProps> = ({
           friendName={friendDetails.username}
           currentTags={friendDetails.tags || []}
           onSuccess={() => {
-             fetchDetails(); // Refetch local details
-             forceRefresh(); // Update global context
+            fetchDetails(); // Refetch local details
+            forceRefresh(); // Update global context
           }}
         />
       )}

@@ -9,6 +9,14 @@ export interface SearchUserResponse {
   avatar_url: string | null;
 }
 
+export interface UserInfoResponse {
+  code: number;
+  id: number;
+  username: string;
+  avatar_url: string | null;
+  email: string;
+}
+
 export interface FriendApplyRequest {
   target_user_id: number;
   message?: string;
@@ -103,8 +111,13 @@ export const sendFriendRequest = async (target_user_id: number, message?: string
   return response.data;
 };
 
+export const getUserInfo = async (userId: number | string): Promise<UserInfoResponse> => {
+  const response = await api.get(`/api/friend/info/${userId}`);
+  return response.data;
+};
+
 export const handleFriendRequest = async (request_id: number, action: 'accepted' | 'rejected') => {
-  const response = await api.put('/friend/handle', {
+  const response = await api.post('/friend/handle', {
     request_id,
     action,
   });
@@ -128,7 +141,7 @@ export const getFriendList = async () => {
         if (Array.isArray(friend.tags)) {
           parsedTags = friend.tags;
         } else if (typeof friend.tag === 'string' && friend.tag) {
-           parsedTags = friend.tag.split(',').map((t: string) => t.trim()).filter((t: string) => t);
+          parsedTags = friend.tag.split(',').map((t: string) => t.trim()).filter((t: string) => t);
         }
 
         return {
@@ -184,7 +197,7 @@ export const queryFriendsByTag = async (name: string) => {
         if (Array.isArray(friend.tags)) {
           parsedTags = friend.tags;
         } else if (typeof friend.tag === 'string' && friend.tag) {
-           parsedTags = friend.tag.split(',').map((t: string) => t.trim()).filter((t: string) => t);
+          parsedTags = friend.tag.split(',').map((t: string) => t.trim()).filter((t: string) => t);
         }
 
         return {

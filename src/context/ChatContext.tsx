@@ -7,6 +7,7 @@ interface ChatContextType {
   friendRequests: NewChatMessage[];
   sendMessage: (receiverId: number, content: string, currentUserId: number) => void;
   removeFriendRequest: (msgId: number) => void;
+  removeMessagesWithUser: (userId: number) => void;
 }
 
 const ChatContext = createContext<ChatContextType | undefined>(undefined);

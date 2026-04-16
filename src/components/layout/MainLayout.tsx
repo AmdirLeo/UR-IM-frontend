@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Sidebar, ViewMode } from './Sidebar';
-import { ChatList, dummyChats } from './ChatList';
+import { ChatList } from './ChatList';
 import { ChatPanel } from './ChatPanel';
 import { ContactList, dummyGroups } from './ContactList';
 import { ContactDetail } from './ContactDetail';
@@ -18,7 +18,7 @@ interface MainLayoutProps {
 }
 
 export const MainLayout: React.FC<MainLayoutProps> = ({ currentUserId, username, onLogout }) => {
-  const { isConnected, messages, sendMessage } = useChatContext();
+  const { isConnected, messages, sendMessage, removeMessagesWithUser } = useChatContext();
   const { friends } = useContactContext();
 
   // View State
@@ -36,6 +36,27 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ currentUserId, username,
   const [chatListWidth, setChatListWidth] = useState<number>(300);
   const [isResizingList, setIsResizingList] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+
+  // Handle friend removal event
+  React.useEffect(() => {
+    const handleFriendRemoved = (event: CustomEvent) => {
+      const { friendId } = event.detail;
+      if (activeContactId === friendId) {
+        setActiveContactId(null);
+      }
+      // Also clear active chat if it was with the removed friend
+      if (activeChatId === friendId) {
+        setActiveChatId(null);
+      }
+      // Remove all messages with the removed friend
+      removeMessagesWithUser(friendId);
+    };
+
+    window.addEventListener('friendRemoved', handleFriendRemoved as EventListener);
+    return () => {
+      window.removeEventListener('friendRemoved', handleFriendRemoved as EventListener);
+    };
+  }, [activeContactId, activeChatId, removeMessagesWithUser]);
 
   // Resize handler for Chat List
   React.useEffect(() => {
@@ -122,6 +143,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ currentUserId, username,
               activeChatId={activeChatId}
               onSelectChat={(id) => setActiveChatId(id)}
               width={chatListWidth}
+              currentUserId={currentUserId}
             />
           ) : (
             <ContactList
@@ -148,7 +170,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ currentUserId, username,
             ) : (
               <ChatPanel
                 activeChatId={activeChatId}
-                activeChatName={dummyChats.find((c: { id: number; name: string; avatarColor: string; isMuted: boolean; time: string; unread: number; }) => c.id === activeChatId)?.name}
+                activeChatName={friends.find(f => f.user_id === activeChatId)?.username}
                 currentUserId={currentUserId}
                 isConnected={isConnected}
                 messages={messages}
