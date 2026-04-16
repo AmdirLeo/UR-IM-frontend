@@ -8,7 +8,7 @@ import styles from './CreateTagModal.module.css';
 interface CreateTagModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSuccess: () => void;
+  onSuccess: (tagName: string, selectedFriendIds: number[]) => void;
 }
 
 export const CreateTagModal: React.FC<CreateTagModalProps> = ({ isOpen, onClose, onSuccess }) => {
@@ -47,11 +47,6 @@ export const CreateTagModal: React.FC<CreateTagModalProps> = ({ isOpen, onClose,
       return;
     }
 
-    if (selectedFriendIds.length === 0) {
-      setError('Please select at least one friend to assign to this tag');
-      return;
-    }
-
     setSubmitting(true);
     setError(null);
 
@@ -62,13 +57,15 @@ export const CreateTagModal: React.FC<CreateTagModalProps> = ({ isOpen, onClose,
          throw new Error(createResponse.msg || 'Failed to create tag');
       }
 
-      // 2. Assign friends to the tag
-      const addResponse = await addFriendToTag(tagName.trim(), selectedFriendIds);
-      if (addResponse.code !== 200) {
-         throw new Error(addResponse.msg || 'Failed to assign friends to tag');
+      // 2. Assign friends to the tag, if any are selected
+      if (selectedFriendIds.length > 0) {
+        const addResponse = await addFriendToTag(tagName.trim(), selectedFriendIds);
+        if (addResponse.code !== 200) {
+           throw new Error(addResponse.msg || 'Failed to assign friends to tag');
+        }
       }
 
-      onSuccess();
+      onSuccess(tagName.trim(), selectedFriendIds);
       onClose();
     } catch (err: any) {
       setError(err.message || 'An error occurred during tag creation');
@@ -174,9 +171,9 @@ export const CreateTagModal: React.FC<CreateTagModalProps> = ({ isOpen, onClose,
           <button
             onClick={handleSubmit}
             className={styles.submitButton}
-            disabled={submitting || !tagName.trim() || selectedFriendIds.length === 0}
+            disabled={submitting || !tagName.trim()}
           >
-            {submitting ? 'Creating...' : 'Create & Assign'}
+            {submitting ? 'Creating...' : selectedFriendIds.length === 0 ? 'Create Tag' : 'Create & Assign'}
           </button>
         </div>
       </div>

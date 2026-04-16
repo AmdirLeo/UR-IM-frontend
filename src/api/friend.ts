@@ -67,6 +67,12 @@ export interface TagRemoveFriendRequest {
   friend_user_ids: number[];
 }
 
+export interface FriendTagListResponse {
+  code: number;
+  msg: string;
+  data: string[];
+}
+
 // --- API Functions ---
 
 export const searchUsers = async (keyword: string, page = 1, size = 20) => {
@@ -116,14 +122,29 @@ export const getFriendList = async () => {
   if (data && Array.isArray(data.data)) {
     return {
       ...data,
-      data: data.data.map((friend: any) => ({
-        ...friend,
-        avatar_url: formatAvatarUrl(friend.avatar_url),
-        tags: friend.tag ? friend.tag.split(',').map((t: string) => t.trim()).filter((t: string) => t) : [], // Parse string into array
-      })),
+      data: data.data.map((friend: any) => {
+        // Handle both legacy string tag format and new array tags format
+        let parsedTags: string[] = [];
+        if (Array.isArray(friend.tags)) {
+          parsedTags = friend.tags;
+        } else if (typeof friend.tag === 'string' && friend.tag) {
+           parsedTags = friend.tag.split(',').map((t: string) => t.trim()).filter((t: string) => t);
+        }
+
+        return {
+          ...friend,
+          avatar_url: formatAvatarUrl(friend.avatar_url),
+          tags: parsedTags,
+        };
+      }),
     };
   }
   return data;
+};
+
+export const getFriendTags = async () => {
+  const response = await api.get('/friend/tag/list');
+  return response.data;
 };
 
 export const createFriendTag = async (name: string) => {
@@ -158,11 +179,20 @@ export const queryFriendsByTag = async (name: string) => {
   if (data && Array.isArray(data.data)) {
     return {
       ...data,
-      data: data.data.map((friend: any) => ({
-        ...friend,
-        avatar_url: formatAvatarUrl(friend.avatar_url),
-        tags: friend.tag ? friend.tag.split(',').map((t: string) => t.trim()).filter((t: string) => t) : [], // Parse string into array
-      })),
+      data: data.data.map((friend: any) => {
+        let parsedTags: string[] = [];
+        if (Array.isArray(friend.tags)) {
+          parsedTags = friend.tags;
+        } else if (typeof friend.tag === 'string' && friend.tag) {
+           parsedTags = friend.tag.split(',').map((t: string) => t.trim()).filter((t: string) => t);
+        }
+
+        return {
+          ...friend,
+          avatar_url: formatAvatarUrl(friend.avatar_url),
+          tags: parsedTags,
+        };
+      }),
     };
   }
   return data;
