@@ -112,7 +112,7 @@ export const sendFriendRequest = async (target_user_id: number, message?: string
 };
 
 export const getUserInfo = async (userId: number | string): Promise<UserInfoResponse> => {
-  const response = await api.get(`/api/friend/info/${userId}`);
+  const response = await api.get(`/friend/info/${userId}`);
   return response.data;
 };
 
