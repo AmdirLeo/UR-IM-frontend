@@ -10,9 +10,12 @@ interface ChatPanelProps {
   sendMessage: (receiverId: number, content: string, senderId: number) => void;
 }
 
-export const ChatPanel: React.FC<ChatPanelProps & { activeChatName?: string }> = ({
+import { formatAvatarUrl } from '../../utils/url';
+
+export const ChatPanel: React.FC<ChatPanelProps & { activeChatName?: string; activeChatAvatar?: string | null; }> = ({
   activeChatId,
   activeChatName,
+  activeChatAvatar,
   currentUserId,
   isConnected,
   messages,
@@ -74,6 +77,19 @@ export const ChatPanel: React.FC<ChatPanelProps & { activeChatName?: string }> =
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
+  // Filter messages to only show ones relevant to the active chat
+  const filteredMessages = messages.filter(msg => {
+    if (msg.type === 'NEW_CHAT_MESSAGE') {
+      const isRelevant = msg.data.sender_id === activeChatId || msg.data.conversation_id === activeChatId;
+      return isRelevant;
+    } else if (msg.type === 'chat' || msg.type === 'private' || msg.type === 'broadcast') {
+      // optimistic messages where we sent it
+      const targetId = (msg as { target_id?: number }).target_id;
+      return targetId === activeChatId || msg.sender_id === activeChatId || msg.receiver_id === activeChatId;
+    }
+    return false; // hide system messages if they don't have conversation info, or handle them elsewhere
+  });
+
   return (
     <div className="flex-1 h-full bg-primary flex flex-col min-w-[400px]">
       {/* Header */}
@@ -92,12 +108,12 @@ export const ChatPanel: React.FC<ChatPanelProps & { activeChatName?: string }> =
 
       {/* Message History Area */}
       <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
-        {messages.length === 0 ? (
+        {filteredMessages.length === 0 ? (
           <div className="flex justify-center mt-10">
             <span className="text-xs bg-secondary text-secondary px-3 py-1 rounded">No messages yet.</span>
           </div>
         ) : (
-          messages.map((msg, idx) => {
+          filteredMessages.map((msg, idx) => {
             const isMe = (msg.type === 'chat' && msg.sender_id?.toString() === currentUserId) ||
               (msg.type === 'NEW_CHAT_MESSAGE' && msg.data.sender_id?.toString() === currentUserId);
 
@@ -121,7 +137,15 @@ export const ChatPanel: React.FC<ChatPanelProps & { activeChatName?: string }> =
             return (
               <div key={idx} className={`flex ${isMe ? 'justify-end' : 'justify-start'} mb-4`}>
                 {!isMe && (
-                  <div className="w-9 h-9 bg-blue-500 rounded flex-shrink-0 mr-3 mt-1" />
+                  <div className="w-9 h-9 bg-gray-300 rounded flex-shrink-0 mr-3 mt-1 flex items-center justify-center overflow-hidden">
+                    {(msg.type === 'NEW_CHAT_MESSAGE' && msg.data.sender_id === -1) ? (
+                       <img src="https://api.dicebear.com/7.x/bottts/svg?seed=System" alt="system" className="w-full h-full object-cover" />
+                    ) : activeChatAvatar ? (
+                       <img src={formatAvatarUrl(activeChatAvatar)!} alt="avatar" className="w-full h-full object-cover" />
+                    ) : (
+                      <span className="text-gray-500 font-bold opacity-50">{activeChatName?.charAt(0) || '?'}</span>
+                    )}
+                  </div>
                 )}
 
                 <div className={`max-w-[70%] ${isMe ? 'bg-bubble-self text-primary' : 'bg-bubble-other text-primary'} rounded p-2.5 shadow-sm border ${isMe ? 'border-primary' : 'border-primary'} relative`}>
@@ -138,7 +162,7 @@ export const ChatPanel: React.FC<ChatPanelProps & { activeChatName?: string }> =
 
                 {isMe && (
                   <div className="w-9 h-9 bg-gray-300 rounded flex-shrink-0 ml-3 mt-1 flex items-center justify-center overflow-hidden">
-                    <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Felix" alt="avatar" />
+                    <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Felix" alt="avatar" className="w-full h-full object-cover" />
                   </div>
                 )}
               </div>

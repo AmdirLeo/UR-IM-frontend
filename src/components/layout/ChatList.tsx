@@ -59,15 +59,18 @@ export const ChatList: React.FC<ChatListProps> = ({ activeChatId, onSelectChat, 
           chat.lastMessage = message.data.content || 'New message';
           chat.time = new Date(message.data.create_time).toLocaleDateString();
           // Increment unread count if message is not from current user
-          if (senderId !== parseInt(currentUserId)) {
+          if (senderId !== parseInt(currentUserId) && chatPartnerId !== activeChatId) {
             chat.unread += 1;
+          } else if (chatPartnerId === activeChatId) {
+             // Optional: immediately clear unread if it is the active chat
+            chat.unread = 0;
           }
         }
       }
     });
 
     return Array.from(chatMap.values());
-  }, [friends, messages]);
+  }, [friends, messages, activeChatId, currentUserId]);
 
   const filteredChats = chats.filter(chat =>
     chat.name.toLowerCase().includes(searchTerm.toLowerCase())
