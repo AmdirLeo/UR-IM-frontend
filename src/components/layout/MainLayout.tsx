@@ -171,6 +171,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ currentUserId, username,
               <ChatPanel
                 activeChatId={activeChatId}
                 activeChatName={friends.find(f => f.user_id === activeChatId)?.username}
+                activeChatAvatar={friends.find(f => f.user_id === activeChatId)?.avatar_url}
                 currentUserId={currentUserId}
                 isConnected={isConnected}
                 messages={messages}
