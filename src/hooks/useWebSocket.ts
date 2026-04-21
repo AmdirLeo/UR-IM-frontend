@@ -66,7 +66,7 @@ export const useWebSocket = (token: string | null): UseWebSocketReturn => {
 
     // We use the same host as the API but with the ws:// protocol
     // Assuming backend is at localhost:8000 as defined by user
-    const baseUrl = import.meta.env.VITE_WS_URL || 'ws://127.0.0.1:8000/api/websocket/ws';
+    const baseUrl = import.meta.env.VITE_WS_URL || 'ws://127.0.0.1:8000/websocket/ws';
     const wsUrl = `${baseUrl}?token=${token}`;
     const ws = new WebSocket(wsUrl);
     wsRef.current = ws;
