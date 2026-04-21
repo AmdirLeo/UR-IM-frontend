@@ -1,0 +1,132 @@
+.headerContainer {
+  @apply text-center mb-8;
+}
+
+.title {
+  @apply text-2xl font-bold text-primary;
+}
+
+.subtitle {
+  @apply text-sm text-secondary mt-2;
+}
+
+.errorAlert {
+  @apply mb-4 p-3 bg-red-50 text-red-700 text-sm rounded-md flex items-center;
+}
+
+.successAlert {
+  @apply mb-4 p-3 bg-green-50 text-green-700 text-sm rounded-md flex items-center;
+}
+
+.alertIcon {
+  @apply w-4 h-4 mr-2;
+}
+
+.formContainer {
+  @apply space-y-5;
+}
+
+.inputGroup {
+  @apply relative;
+}
+
+.label {
+  @apply block text-sm font-medium text-secondary mb-1.5;
+}
+
+.iconContainer {
+  @apply absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none;
+}
+
+.icon {
+  @apply h-5 w-5 text-tertiary opacity-70;
+}
+
+.input {
+  @apply pl-10 pr-4 py-3 w-full border rounded-lg outline-none transition-all;
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  border-color: var(--border-primary);
+}
+
+.input:focus {
+  border-color: var(--border-focus);
+  /* 可选：加一点发光效果 */
+  box-shadow: 0 0 0 2px var(--border-focus);
+  opacity: 0.8;
+}
+
+.input:-webkit-autofill,
+.input:-webkit-autofill:hover,
+.input:-webkit-autofill:focus,
+.input:-webkit-autofill:active {
+  -webkit-box-shadow: 0 0 0 30px var(--bg-primary) inset !important;
+  -webkit-text-fill-color: var(--text-primary) !important;
+  transition: background-color 5000s ease-in-out 0s;
+}
+
+.verificationRow {
+  @apply flex space-x-2;
+}
+
+.verificationInputWrapper {
+  @apply relative flex-1;
+}
+
+.getCodeBtn {
+  @apply px-4 py-2 bg-secondary text-primary border border-primary rounded-md hover:bg-hover disabled:opacity-50 text-sm whitespace-nowrap;
+}
+
+.submitBtn {
+  @apply w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-md text-sm font-medium text-white transition-colors mt-6 disabled:opacity-50;
+  background-color: var(--brand-primary);
+}
+
+.submitBtn:hover {
+  background-color: var(--brand-hover);
+}
+
+.submitBtn:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--bg-primary), 0 0 0 4px var(--border-focus);
+}
+
+.footerContainer {
+  @apply mt-6 text-center;
+}
+
+.toggleModeBtn {
+  @apply text-sm text-blue-600 hover:text-blue-500;
+}
+
+.authPageWrapper {
+  @apply min-h-screen flex items-center justify-center w-full relative;
+  /* 基础底色 */
+  background-color: var(--bg-primary);
+}
+
+/* 用伪元素做背景图，方便控制透明度，不影响登录框本身 */
+.authPageWrapper::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  /* 替换为你图片的实际相对路径 */
+  background-image: url('../../assets/images/empty-chat-dark.png');
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  /* 核心：极低的透明度和灰度，让它变成隐约的暗纹 */
+  opacity: 0.05;
+  filter: grayscale(100%);
+  z-index: 0;
+}
+
+/* 确保登录卡片在背景图片之上 */
+.authCard {
+  @apply w-full max-w-md bg-primary rounded-lg shadow-2xl p-8 relative z-10;
+  /* 给登录卡片加一点边框，让它从暗背景中浮现出来 */
+  border: 1px solid var(--border-primary);
+}
