@@ -1,0 +1,31 @@
+# 使用课程提供的专属 deployer 镜像作为基础环境
+image: registry.spring26b.secoder.net/tool/deployer
+
+stages:
+  - build
+  - deploy
+
+# 阶段一：构建镜像并推送到 SECoder Registry
+build-frontend:
+  stage: build
+  script:
+    # 传递预定义的环境变量给 deployer
+    - export BUILD_IMAGE_NAME=$CI_REGISTRY_IMAGE
+    - export BUILD_IMAGE_TAG=$CI_COMMIT_REF_SLUG
+    - export BUILD_IMAGE_USERNAME=$CI_REGISTRY_USER
+    - export BUILD_IMAGE_PASSWORD=$CI_REGISTRY_PASSWORD
+    # 自动寻找根目录的 Dockerfile 执行构建和上传
+    - deployer build
+
+# 阶段二：将新构建的镜像部署到对应容器中
+deploy-frontend:
+  stage: deploy
+  script:
+    # 设定 API Server（按需选择 a/b 班）
+    - export API_SERVER=https://deployer.spring26b.secoder.net/api # 如果是裴丹老师班，请改成 spring26a
+    # 动态替换 SECoder 平台上的容器镜像
+    - deployer dyno replace $CI_PROJECT_NAME "$CI_REGISTRY_IMAGE:$CI_COMMIT_REF_SLUG" "$REGISTRY_USER" "$REGISTRY_PWD"
+  only:
+    - main
+    - dev
+    - feat/CICD-xll

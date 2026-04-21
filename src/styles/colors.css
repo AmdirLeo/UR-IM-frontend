@@ -1,0 +1,117 @@
+/* colors.css - Global color scheme variables */
+:root {
+  /* ===================== */
+  /* LIGHT THEME (DEFAULT) */
+  /* ===================== */
+
+  /* Backgrounds */
+  --bg-primary: #FFFFFF;
+  --bg-secondary: #F5F5F5;
+  /* Matches bg-gray-100 or WeChat's light gray */
+  --bg-tertiary: #EFEFEF;
+  --bg-panel: #F5F5F5;
+  --bg-hover: #E2E2E2;
+  --bg-active: #D9D9D9;
+
+  /* Text Colors */
+  --text-primary: #000000;
+  --text-secondary: #666666;
+  /* Similar to text-gray-500/600 */
+  --text-tertiary: #999999;
+  --text-inverse: #FFFFFF;
+
+  /* Borders */
+  --border-primary: #DCDCDC;
+  --border-secondary: #E9E9E9;
+  --border-focus: #1AAD19;
+
+  /* Sidebar colors */
+  --sidebar-bg: var(--bg-secondary);
+  --sidebar-text: var(--text-secondary);
+  --sidebar-hover-text: var(--text-primary);
+  --sidebar-active-text: var(--brand-primary);
+
+  /* Brand / Primary Action Colors (WeChat Green) */
+  --brand-primary: #1AAD19;
+  --brand-hover: #129611;
+  --brand-active: #06AD56;
+
+  /* Semantic Colors */
+  --color-success: #07C160;
+  --color-danger: #FA5151;
+  /* Standard red */
+  --color-danger-hover: #E64340;
+  --color-warning: #FFC300;
+  --color-info: #10AEFF;
+
+  /* Chat Bubbles */
+  --chat-bubble-self: #95EC69;
+  --chat-bubble-self-hover: #89D961;
+  --chat-bubble-other: #FFFFFF;
+  --chat-bubble-other-hover: #F5F5F5;
+}
+
+.theme-purple {
+  --border-focus: #7B1FA2;
+  --brand-primary: #7B1FA2;
+  --brand-hover: #6A1B9A;
+  --brand-active: #4A148C;
+  --sidebar-bg: #7B1FA2;
+  --sidebar-text: rgba(255, 255, 255, 0.6);
+  --sidebar-hover-text: #F5F5F5;
+  --sidebar-active-text: #FFFFFF;
+}
+
+.dark {
+  /* ===================== */
+  /* DARK THEME            */
+  /* ===================== */
+
+  /* Backgrounds */
+  --bg-primary: #121212;
+  /* Matches main dark mode bg */
+  --bg-secondary: #181818;
+  /* Sub-panels, sidebar */
+  --bg-tertiary: #252525;
+  --bg-panel: #2A2A2A;
+  --bg-hover: #2C2C2C;
+  --bg-active: #323232;
+
+  /* Text Colors */
+  --text-primary: #E2E2E2;
+  /* Slightly off-white for softer contrast */
+  --text-secondary: #888888;
+  --text-tertiary: #555555;
+  --text-inverse: #000000;
+
+  /* Borders */
+  --border-primary: #333333;
+  /* Dark subtle borders */
+  --border-secondary: #444444;
+  --border-focus: #1AAD19;
+
+  /* Brand / Primary Action Colors */
+  --brand-primary: #1AAD19;
+  --brand-hover: #129611;
+  --brand-active: #06AD56;
+
+  /* Sidebar colors */
+  --sidebar-bg: var(--bg-secondary);
+  --sidebar-text: var(--text-secondary);
+  --sidebar-hover-text: var(--text-primary);
+  --sidebar-active-text: var(--brand-primary);
+
+  /* Semantic Colors */
+  --color-success: #07C160;
+  --color-danger: #FA5151;
+  --color-danger-hover: #E64340;
+  --color-warning: #FFC300;
+  --color-info: #10AEFF;
+
+  /* Chat Bubbles */
+  --chat-bubble-self: #1AAD19;
+  /* Self bubble in dark mode */
+  --chat-bubble-self-hover: #129611;
+  --chat-bubble-other: #2C2C2C;
+  --chat-bubble-other-hover: #333333;
+}

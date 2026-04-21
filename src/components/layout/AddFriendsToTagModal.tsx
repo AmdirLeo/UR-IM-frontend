@@ -1,0 +1,165 @@
+import React, { useState, useEffect } from 'react';
+import { X, Search } from 'lucide-react';
+import { useContactContext } from '../../context/ContactContext';
+import { addFriendToTag } from '../../api/friend';
+import { FriendAvatar } from '../common/FriendAvatar';
+import styles from './AddFriendsToTagModal.module.css';
+
+interface AddFriendsToTagModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  tagName: string;
+  onSuccess: () => void;
+}
+
+export const AddFriendsToTagModal: React.FC<AddFriendsToTagModalProps> = ({ isOpen, onClose, tagName, onSuccess }) => {
+  const { friends } = useContactContext();
+  const [selectedFriendIds, setSelectedFriendIds] = useState<number[]>([]);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Reset state when modal opens/closes
+  useEffect(() => {
+    if (isOpen) {
+      setSelectedFriendIds([]);
+      setSearchTerm('');
+      setError(null);
+    }
+  }, [isOpen]);
+
+  if (!isOpen) return null;
+
+  const availableFriends = friends.filter(friend => !friend.tags?.includes(tagName));
+  const filteredFriends = availableFriends.filter(friend =>
+    friend.username.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  const toggleFriendSelection = (id: number) => {
+    setSelectedFriendIds(prev =>
+      prev.includes(id) ? prev.filter(fId => fId !== id) : [...prev, id]
+    );
+  };
+
+  const handleSubmit = async () => {
+    if (selectedFriendIds.length === 0) {
+      setError('Please select at least one friend to assign to this tag');
+      return;
+    }
+
+    setSubmitting(true);
+    setError(null);
+
+    try {
+      const addResponse = await addFriendToTag(tagName, selectedFriendIds);
+      if (addResponse.code !== 200) {
+         throw new Error(addResponse.msg || 'Failed to assign friends to tag');
+      }
+
+      onSuccess();
+      onClose();
+    } catch (err: any) {
+      setError(err.message || 'An error occurred during tag assignment');
+      console.error(err);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div className={styles.modalOverlay}>
+      <div className={styles.modalContent}>
+        <div className={styles.modalHeader}>
+          <h2 className={styles.modalTitle}>Add Friends to Tag</h2>
+          <button onClick={onClose} className={styles.closeButton}>
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        <div className={styles.modalBody}>
+          {error && (
+            <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-600 text-sm rounded-md">
+              {error}
+            </div>
+          )}
+
+          <div className="mb-4">
+            <span className="text-sm text-gray-500">Adding friends to tag: </span>
+            <span className="font-semibold text-primary">{tagName}</span>
+          </div>
+
+          <div className={styles.formGroup}>
+            <div className="flex justify-between items-end mb-2">
+              <label className={styles.label} style={{ marginBottom: 0 }}>
+                Select Friends ({selectedFriendIds.length} selected)
+              </label>
+            </div>
+
+            <div className="relative mb-2">
+               <div className="absolute inset-y-0 left-0 pl-2 flex items-center pointer-events-none">
+                 <Search className="h-3.5 w-3.5 text-gray-400" />
+               </div>
+               <input
+                 type="text"
+                 className={`${styles.input} pl-8 py-1.5 text-sm`}
+                 placeholder="Search friends..."
+                 value={searchTerm}
+                 onChange={(e) => setSearchTerm(e.target.value)}
+               />
+            </div>
+
+            <div className={styles.friendList}>
+              {availableFriends.length === 0 ? (
+                <div className="p-4 text-center text-sm text-gray-500">
+                  All your friends are already in this tag or you have no friends.
+                </div>
+              ) : filteredFriends.length === 0 ? (
+                <div className="p-4 text-center text-sm text-gray-500">
+                  No friends match your search.
+                </div>
+              ) : (
+                filteredFriends.map(friend => (
+                  <label key={friend.user_id} className={styles.friendItem}>
+                    <input
+                      type="checkbox"
+                      checked={selectedFriendIds.includes(friend.user_id)}
+                      onChange={() => toggleFriendSelection(friend.user_id)}
+                    />
+                    <div className="w-8 h-8 mr-3">
+                      <FriendAvatar
+                        userId={friend.user_id}
+                        avatarUrl={friend.avatar_url}
+                        name={friend.username}
+                        fallbackColorClass="bg-blue-400"
+                      />
+                    </div>
+                    <span className="text-sm text-gray-700 flex-1 truncate">
+                      {friend.username}
+                    </span>
+                  </label>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+
+        <div className={styles.modalFooter}>
+          <button
+            onClick={onClose}
+            className={styles.cancelButton}
+            disabled={submitting}
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleSubmit}
+            className={styles.submitButton}
+            disabled={submitting || selectedFriendIds.length === 0}
+          >
+            {submitting ? 'Adding...' : 'Add Friends'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
