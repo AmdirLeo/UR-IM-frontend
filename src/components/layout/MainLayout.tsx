@@ -17,8 +17,8 @@ interface MainLayoutProps {
   onLogout: () => void;
 }
 
-export const MainLayout: React.FC<MainLayoutProps> = ({ currentUserId, username, onLogout }) => {
-  const { isConnected, messages, sendMessage, removeMessagesWithUser } = useChatContext();
+export const MainLayout: React.FC<MainLayoutProps> = ({ currentUserId, username, token, onLogout }) => {
+  const { isConnected, messages, sendMessage, removeMessagesWithUser, loadConversations } = useChatContext();
   const { friends } = useContactContext();
 
   // View State
@@ -36,6 +36,12 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ currentUserId, username,
   const [chatListWidth, setChatListWidth] = useState<number>(300);
   const [isResizingList, setIsResizingList] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+
+  React.useEffect(() => {
+    if (token) {
+      loadConversations();
+    }
+  }, [token, loadConversations]);
 
   // Handle friend removal event
   React.useEffect(() => {
@@ -98,8 +104,9 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ currentUserId, username,
   const activeContactAvatarUrl = activeFriend?.avatar_url;
 
   const handleSendMessage = (contactId: number) => {
-    // In a real app, this might create a new chat or find an existing one
-    // For now, we mock it by switching to Messages view and setting the activeChatId
+    // Navigate from Contacts view to Messages view.
+    // Here we assume `contactId` strictly maps to a `conversation_id` for simplicity,
+    // which aligns with the mapping fixed in `ChatList.tsx`.
     setActiveChatId(contactId);
     setPreviousView(activeView);
     setActiveView('messages');
@@ -170,7 +177,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ currentUserId, username,
             ) : (
               <ChatPanel
                 activeChatId={activeChatId}
-                activeChatName={friends.find(f => f.user_id === activeChatId)?.username}
+                activeChatName={friends.find(f => f.user_id === activeChatId)?.username || `Conversation ${activeChatId}`}
                 activeChatAvatar={friends.find(f => f.user_id === activeChatId)?.avatar_url}
                 currentUserId={currentUserId}
                 isConnected={isConnected}

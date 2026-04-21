@@ -25,31 +25,62 @@ interface ChatItem {
 export const ChatList: React.FC<ChatListProps> = ({ activeChatId, onSelectChat, width, currentUserId }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const { friends } = useContactContext();
-  const { messages } = useChatContext();
+  const { messages, conversations } = useChatContext();
 
   // Generate dynamic chat list from friends and messages
   const chats: ChatItem[] = useMemo(() => {
     const chatMap = new Map<number, ChatItem>();
 
-    // Add friends as potential chats
-    friends.forEach(friend => {
-      chatMap.set(friend.user_id, {
-        id: friend.user_id,
-        name: friend.username,
-        time: 'recent',
-        unread: 0,
-        avatarUrl: friend.avatar_url,
+    // Apply Sprint 1 synced conversations FIRST (they define actual active chats with conversation_ids)
+    conversations.forEach(conv => {
+      // For 1-on-1, try to find a friend whose user_id is NOT the current user.
+      // Or in the friend list, find by conversation_id?
+      // The API doesn't tell us the other user's ID directly in the Sync API unless last_msg_sender_id is used.
+      // But friends list has `user_id`. Wait, if we use `conv.conversation_id`, we might need to lookup the friend if it's a 1-on-1 chat.
+      // Often, for 1-on-1, `conversation_id` might literally map to the friend's `user_id` in a simple mock, or they are distinct.
+      // We will map strictly by `conversation_id` here.
+
+      const chatPartnerId = conv.conversation_id; // THIS IS THE ACTUAL ID
+
+      // Attempt to find a matching friend (if conversation_id == friend.user_id in simplified backend).
+      // Or if not, we display User {conversation_id}
+      const friend = friends.find(f => f.user_id === chatPartnerId);
+
+      chatMap.set(chatPartnerId, {
+        id: conv.conversation_id, // We set ID to conversation_id
+        name: friend?.username || `Conversation ${chatPartnerId}`,
+        time: conv.last_msg_send_time ? new Date(conv.last_msg_send_time).toLocaleDateString() : 'recent',
+        unread: chatPartnerId === activeChatId ? 0 : conv.unread_count,
+        avatarUrl: friend?.avatar_url,
         avatarColor: 'bg-gray-300',
-        isMuted: false,
-        lastMessage: 'No messages yet'
+        isMuted: conv.muted || false,
+        lastMessage: conv.last_msg_content || 'No messages yet'
       });
     });
 
-    // Update with message data
+    // Add friends as potential chats ONLY IF they aren't already an active conversation
+    friends.forEach(friend => {
+      if (!chatMap.has(friend.user_id)) {
+        // If the user clicks on a friend without an existing conversation, we will mock a conversation id
+        // equal to their user_id to start chatting.
+        chatMap.set(friend.user_id, {
+          id: friend.user_id,
+          name: friend.username,
+          time: 'recent',
+          unread: 0,
+          avatarUrl: friend.avatar_url,
+          avatarColor: 'bg-gray-300',
+          isMuted: false,
+          lastMessage: 'Start a new chat...'
+        });
+      }
+    });
+
+    // Update with message data for new local updates
     messages.forEach(message => {
       if (message.type === 'NEW_CHAT_MESSAGE') {
         const senderId = message.data.sender_id;
-        const receiverId = message.data.conversation_id; // Use conversation_id as receiver for private chats
+        const receiverId = message.data.conversation_id;
 
         // Find the chat partner (not current user)
         const chatPartnerId = senderId === parseInt(currentUserId) ? receiverId : senderId;
@@ -62,7 +93,7 @@ export const ChatList: React.FC<ChatListProps> = ({ activeChatId, onSelectChat, 
           if (senderId !== parseInt(currentUserId) && chatPartnerId !== activeChatId) {
             chat.unread += 1;
           } else if (chatPartnerId === activeChatId) {
-             // Optional: immediately clear unread if it is the active chat
+             // immediately clear unread if it is the active chat
             chat.unread = 0;
           }
         }
@@ -70,7 +101,7 @@ export const ChatList: React.FC<ChatListProps> = ({ activeChatId, onSelectChat, 
     });
 
     return Array.from(chatMap.values());
-  }, [friends, messages, activeChatId, currentUserId]);
+  }, [friends, messages, conversations, activeChatId, currentUserId]);
 
   const filteredChats = chats.filter(chat =>
     chat.name.toLowerCase().includes(searchTerm.toLowerCase())

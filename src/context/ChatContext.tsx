@@ -1,6 +1,8 @@
 import React, { createContext, useContext, ReactNode } from 'react';
 import { useWebSocket, WSMessage, NewChatMessage } from '../hooks/useWebSocket';
 
+import { ConversationItem } from '../api/chat';
+
 interface ChatContextType {
   isConnected: boolean;
   messages: WSMessage[];
@@ -8,6 +10,8 @@ interface ChatContextType {
   sendMessage: (receiverId: number, content: string, currentUserId: number) => void;
   removeFriendRequest: (msgId: number) => void;
   removeMessagesWithUser: (userId: number) => void;
+  conversations: ConversationItem[];
+  loadConversations: () => Promise<void>;
 }
 
 const ChatContext = createContext<ChatContextType | undefined>(undefined);
@@ -33,7 +37,9 @@ export const ChatProvider: React.FC<{ children: ReactNode, token: string | null 
   const contextValue = {
     ...ws,
     sendMessage,
-    // Note: If you need to access conversations or messagesMap later, you can expand ChatContextType and include `...chat` here
+    conversations: chat.conversations,
+    loadConversations: chat.loadConversations,
+    // Note: If you need to access messagesMap later, you can expand ChatContextType and include `...chat` here
   };
 
   return <ChatContext.Provider value={contextValue}>{children}</ChatContext.Provider>;
