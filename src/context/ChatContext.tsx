@@ -45,6 +45,7 @@ export const ChatProvider: React.FC<{ children: ReactNode, token: string | null 
   return <ChatContext.Provider value={contextValue}>{children}</ChatContext.Provider>;
 };
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const useChatContext = () => {
   const context = useContext(ChatContext);
   if (!context) {

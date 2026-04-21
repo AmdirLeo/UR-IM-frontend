@@ -160,8 +160,9 @@ export const useChat = (currentUserId: number) => {
       } else {
         throw new Error(res.msg || "Send failed");
       }
-    } catch (err: any) {
-      console.error('API Send Failed:', err.response?.data || err);
+    } catch (err: unknown) {
+      const error = err as { response?: { data?: unknown } };
+      console.error('API Send Failed:', error.response?.data || err);
       // Mark as failed
       setMessagesMap(prev => {
         const conversationMessages = prev[conversationId] || [];

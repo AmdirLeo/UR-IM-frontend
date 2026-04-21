@@ -9,7 +9,7 @@ export interface SendMessageRequest {
   local_id: string;
   message_content: string;
   msg_type: "text" | "image" | "card" | "notify";
-  extra_data?: Record<string, any>;
+  extra_data?: Record<string, unknown>;
   quote_message_id?: number;
 }
 

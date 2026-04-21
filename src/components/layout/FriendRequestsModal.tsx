@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { X, Check, XCircle, Loader2 } from 'lucide-react';
 import { useChatContext } from '../../context/ChatContext';
-import { handleFriendRequest } from '../../api/friend';
+import { handleFriendRequest, UserInfoResponse } from '../../api/friend';
 import { formatAvatarUrl } from '../../utils/url';
 import { getUserInfo } from '../../api/friend.ts';
+import { NewChatMessage } from '../../hooks/useWebSocket';
 
 // ==========================================
 // 1. 新增：独立的申请列表项子组件
@@ -14,13 +15,14 @@ const FriendRequestItem = ({
   handleAction,
   setError
 }: {
-  req: any;
+  req: NewChatMessage;
   processingId: number | null;
   handleAction: (msgId: number, requestId: number, action: 'accepted' | 'rejected') => void;
   setError: (err: string) => void;
 }) => {
   // 提取基础数据
-  const extra = (req.data.extra ?? {}) as Record<string, unknown>;
+  // NewChatMessage doesn't natively define `extra` in `data`, so we must typecast it or use `content` if it's stringified
+  const extra = ((req.data as unknown as { extra?: Record<string, unknown> }).extra ?? {}) as Record<string, unknown>;
   const msgId = req.data.msg_id;
   const requestId = Number(extra.request_id ?? req.data.msg_id);
   const senderId = Number(extra.sender_id ?? req.data.sender_id);
@@ -28,7 +30,7 @@ const FriendRequestItem = ({
   const message = rawMessage.trim() ? rawMessage : '没有附加信息';
 
   // 状态管理：存储拉取到的真实用户信息
-  const [userInfo, setUserInfo] = useState<any>(null);
+  const [userInfo, setUserInfo] = useState<UserInfoResponse | null>(null);
   const [loading, setLoading] = useState(true);
 
   // 挂载时拉取好友信息

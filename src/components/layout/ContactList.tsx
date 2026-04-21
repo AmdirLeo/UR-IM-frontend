@@ -16,6 +16,7 @@ interface ContactListProps {
   width: number;
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const dummyGroups = [
   { id: 201, name: '前端开发交流群', avatarColor: 'bg-indigo-500' },
   { id: 202, name: '项目讨论组', avatarColor: 'bg-teal-500' },

@@ -58,8 +58,9 @@ export const AddFriendsToTagModal: React.FC<AddFriendsToTagModalProps> = ({ isOp
 
       onSuccess();
       onClose();
-    } catch (err: any) {
-      setError(err.message || 'An error occurred during tag assignment');
+    } catch (err: unknown) {
+      const error = err as Error;
+      setError(error.message || 'An error occurred during tag assignment');
       console.error(err);
     } finally {
       setSubmitting(false);

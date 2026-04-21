@@ -52,6 +52,7 @@ export const ContactDetail: React.FC<ContactDetailProps> = ({
 
   useEffect(() => {
     fetchDetails();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [contactId]);
 
   const handleRemoveFriend = async () => {

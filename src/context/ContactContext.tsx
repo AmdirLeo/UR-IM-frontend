@@ -20,6 +20,7 @@ interface ContactContextType {
   setTags: React.Dispatch<React.SetStateAction<string[]>>;
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const ContactContext = createContext<ContactContextType | undefined>(undefined);
 
 interface ContactProviderProps {
@@ -131,6 +132,7 @@ export const ContactProvider: React.FC<ContactProviderProps> = ({ children }) =>
   );
 };
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const useContactContext = () => {
   const context = useContext(ContactContext);
   if (context === undefined) {

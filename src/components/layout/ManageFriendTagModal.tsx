@@ -63,8 +63,9 @@ export const ManageFriendTagModal: React.FC<ManageFriendTagModalProps> = ({
 
       onSuccess();
       onClose();
-    } catch (err: any) {
-      setError(err.message || 'An error occurred while updating tags');
+    } catch (err: unknown) {
+      const error = err as Error;
+      setError(error.message || 'An error occurred while updating tags');
       console.error(err);
     } finally {
       setSubmitting(false);

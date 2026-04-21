@@ -135,18 +135,18 @@ export const getFriendList = async () => {
   if (data && Array.isArray(data.data)) {
     return {
       ...data,
-      data: data.data.map((friend: any) => {
+      data: data.data.map((friend: Record<string, unknown>) => {
         // Handle both legacy string tag format and new array tags format
         let parsedTags: string[] = [];
         if (Array.isArray(friend.tags)) {
-          parsedTags = friend.tags;
+          parsedTags = friend.tags as string[];
         } else if (typeof friend.tag === 'string' && friend.tag) {
           parsedTags = friend.tag.split(',').map((t: string) => t.trim()).filter((t: string) => t);
         }
 
         return {
           ...friend,
-          avatar_url: formatAvatarUrl(friend.avatar_url),
+          avatar_url: formatAvatarUrl(friend.avatar_url as string | null),
           tags: parsedTags,
         };
       }),
@@ -192,17 +192,17 @@ export const queryFriendsByTag = async (name: string) => {
   if (data && Array.isArray(data.data)) {
     return {
       ...data,
-      data: data.data.map((friend: any) => {
+      data: data.data.map((friend: Record<string, unknown>) => {
         let parsedTags: string[] = [];
         if (Array.isArray(friend.tags)) {
-          parsedTags = friend.tags;
+          parsedTags = friend.tags as string[];
         } else if (typeof friend.tag === 'string' && friend.tag) {
           parsedTags = friend.tag.split(',').map((t: string) => t.trim()).filter((t: string) => t);
         }
 
         return {
           ...friend,
-          avatar_url: formatAvatarUrl(friend.avatar_url),
+          avatar_url: formatAvatarUrl(friend.avatar_url as string | null),
           tags: parsedTags,
         };
       }),

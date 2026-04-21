@@ -29,6 +29,7 @@ interface UserContextType {
   handleLoginSuccess: (newToken: string) => void;
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const UserContext = createContext<UserContextType | undefined>(undefined);
 
 interface UserProviderProps {
