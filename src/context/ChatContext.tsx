@@ -12,9 +12,31 @@ interface ChatContextType {
 
 const ChatContext = createContext<ChatContextType | undefined>(undefined);
 
+import { useChat } from '../hooks/useChat';
+import { UserContext } from './UserContext';
+
 export const ChatProvider: React.FC<{ children: ReactNode, token: string | null }> = ({ children, token }) => {
   const ws = useWebSocket(token);
-  return <ChatContext.Provider value={ws}>{children}</ChatContext.Provider>;
+  const userContext = useContext(UserContext);
+  const currentUserId = userContext?.userInfo?.id ? Number(userContext.userInfo.id) : 0;
+
+  const chat = useChat(currentUserId);
+
+  // We wrap chat.sendChatMessage to match the signature of the old sendMessage
+  // (receiverId: number, content: string, currentUserId: number) => void
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const sendMessage = (receiverId: number, content: string, _senderId: number) => {
+    // The previous implementation used text type, we call sendChatMessage which defaults to "text"
+    chat.sendChatMessage(receiverId, content, "text");
+  };
+
+  const contextValue = {
+    ...ws,
+    sendMessage,
+    // Note: If you need to access conversations or messagesMap later, you can expand ChatContextType and include `...chat` here
+  };
+
+  return <ChatContext.Provider value={contextValue}>{children}</ChatContext.Provider>;
 };
 
 export const useChatContext = () => {

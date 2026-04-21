@@ -162,7 +162,13 @@ export const ChatPanel: React.FC<ChatPanelProps & { activeChatName?: string; act
 
                 {isMe && (
                   <div className="w-9 h-9 bg-gray-300 rounded flex-shrink-0 ml-3 mt-1 flex items-center justify-center overflow-hidden">
-                    <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Felix" alt="avatar" className="w-full h-full object-cover" />
+                    {/* Retrieve own avatar from local storage cache since UserContext updates it there */
+                      localStorage.getItem('cached_avatar_data') ? (
+                        <img src={localStorage.getItem('cached_avatar_data')!} alt="my avatar" className="w-full h-full object-cover" />
+                      ) : (
+                        <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Felix" alt="avatar" className="w-full h-full object-cover" />
+                      )
+                    }
                   </div>
                 )}
               </div>

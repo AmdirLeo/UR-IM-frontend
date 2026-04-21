@@ -128,9 +128,12 @@ export const useChat = (currentUserId: number) => {
         conversation_id: conversationId,
         local_id: localId,
         message_content: content,
-        msg_type: type,
+        msg_type: type, // "text"
+        extra_data: {},
         quote_message_id: quoteMsgId,
       };
+
+      console.log('API Send Payload:', reqPayload);
 
       const res = await chatApi.sendMessage(reqPayload);
 
@@ -157,8 +160,8 @@ export const useChat = (currentUserId: number) => {
       } else {
         throw new Error(res.msg || "Send failed");
       }
-    } catch (err) {
-      console.error('Send message failed', err);
+    } catch (err: any) {
+      console.error('API Send Failed:', err.response?.data || err);
       // Mark as failed
       setMessagesMap(prev => {
         const conversationMessages = prev[conversationId] || [];
