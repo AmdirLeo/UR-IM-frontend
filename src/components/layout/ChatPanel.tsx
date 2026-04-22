@@ -1,6 +1,7 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { MoreHorizontal } from 'lucide-react';
-import { WSMessage } from '../../hooks/useWebSocket';
+import { WSMessage, NewChatMessage } from '../../hooks/useWebSocket';
+import { chatApi } from '../../api/chat';
 
 interface ChatPanelProps {
   activeChatId: number;
@@ -23,9 +24,15 @@ export const ChatPanel: React.FC<ChatPanelProps & { activeChatName?: string; act
 }) => {
   const [inputText, setInputText] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
 
   const [inputHeight, setInputHeight] = useState(120);
   const [isResizingVertical, setIsResizingVertical] = useState(false);
+
+  // Unified Local Cache for History
+  const [historyMessages, setHistoryMessages] = useState<WSMessage[]>([]);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+  const [hasMoreHistory, setHasMoreHistory] = useState(true);
 
   // Resize handler for Chat Input Area
   useEffect(() => {
@@ -73,12 +80,129 @@ export const ChatPanel: React.FC<ChatPanelProps & { activeChatName?: string; act
     }
   };
 
+  const processHistoryMessages = useCallback((data: any[]) => {
+    const validMessages: WSMessage[] = [];
+    const friendRequests: any[] = [];
+    const cachedReqsRaw = localStorage.getItem('cached_friend_requests');
+    const cachedReqs = cachedReqsRaw ? JSON.parse(cachedReqsRaw) : [];
+
+    data.forEach(msg => {
+      // Unify History structure to match WSMessage
+      const formattedMsg: NewChatMessage = {
+        type: 'NEW_CHAT_MESSAGE',
+        data: {
+          conversation_id: activeChatId,
+          msg_id: msg.msg_id,
+          sender_id: msg.sender_id,
+          msg_type: msg.msg_type,
+          content: msg.msg_content,
+          create_time: msg.create_time,
+          quote_message_id: msg.quote_msg_id
+        }
+      };
+
+      // 拦截好友申请消息 (sender_id === -1)
+      if (msg.sender_id === -1) {
+        if (!cachedReqs.find((r: any) => r.data.msg_id === msg.msg_id)) {
+          friendRequests.push(formattedMsg);
+        }
+      } else {
+        validMessages.push(formattedMsg);
+      }
+    });
+
+    if (friendRequests.length > 0) {
+      localStorage.setItem('cached_friend_requests', JSON.stringify([...cachedReqs, ...friendRequests]));
+      window.dispatchEvent(new Event('storage'));
+    }
+
+    return validMessages;
+  }, [activeChatId]);
+
+  // Initial Load History (Triggered by Conversation Change)
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (!activeChatId) return;
+
+    const fetchInitialHistory = async () => {
+      setIsLoadingHistory(true);
+      try {
+        // TODO: The conversation_id logic here is currently incorrect and will be fixed later
+        const data = await chatApi.getMessageHistory({
+          conversation_id: activeChatId,
+          limit: 30,
+        });
+
+        const processed = processHistoryMessages(data);
+        setHistoryMessages(processed.reverse());
+        setHasMoreHistory(data.length === 30);
+      } catch (error) {
+        console.error("Failed to load history:", error);
+      } finally {
+        setIsLoadingHistory(false);
+        setTimeout(() => {
+           messagesEndRef.current?.scrollIntoView({ behavior: 'auto' });
+        }, 100);
+      }
+    };
+
+    fetchInitialHistory();
+  }, [activeChatId, processHistoryMessages]);
+
+  useEffect(() => {
+    const isAtBottom = messagesContainerRef.current
+      ? messagesContainerRef.current.scrollHeight - messagesContainerRef.current.scrollTop - messagesContainerRef.current.clientHeight < 100
+      : false;
+
+    if (isAtBottom || messages.length > 0) {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
   }, [messages]);
 
+  const handleScroll = async (e: React.UIEvent<HTMLDivElement>) => {
+    if (e.currentTarget.scrollTop === 0) {
+      if (isLoadingHistory || !hasMoreHistory || historyMessages.length === 0) return;
+
+      setIsLoadingHistory(true);
+
+      const oldestMsg = historyMessages[0];
+      let cursorId: number | undefined;
+      if (oldestMsg.type === 'NEW_CHAT_MESSAGE') {
+        cursorId = oldestMsg.data.msg_id;
+      }
+
+      const prevScrollHeight = messagesContainerRef.current?.scrollHeight || 0;
+
+      try {
+        // TODO: The conversation_id logic here is currently incorrect and will be fixed later
+        const olderData = await chatApi.getMessageHistory({
+          conversation_id: activeChatId,
+          start_msg_id: cursorId,
+          limit: 30,
+        });
+
+        const processed = processHistoryMessages(olderData);
+
+        if (processed.length > 0) {
+          setHistoryMessages(prev => [...processed.reverse(), ...prev]);
+
+          setTimeout(() => {
+            if (messagesContainerRef.current) {
+              const newScrollHeight = messagesContainerRef.current.scrollHeight;
+              messagesContainerRef.current.scrollTop = newScrollHeight - prevScrollHeight;
+            }
+          }, 0);
+        }
+        setHasMoreHistory(olderData.length === 30);
+      } catch (error) {
+        console.error("Failed to load more history:", error);
+      } finally {
+        setIsLoadingHistory(false);
+      }
+    }
+  };
+
   // Filter messages to only show ones relevant to the active chat
-  const filteredMessages = messages.filter(msg => {
+  const filteredActiveMessages = messages.filter(msg => {
     if (msg.type === 'NEW_CHAT_MESSAGE') {
       const isRelevant = msg.data.sender_id === activeChatId || msg.data.conversation_id === activeChatId;
       return isRelevant;
@@ -107,13 +231,22 @@ export const ChatPanel: React.FC<ChatPanelProps & { activeChatName?: string; act
       </div>
 
       {/* Message History Area */}
-      <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
-        {filteredMessages.length === 0 ? (
+      <div
+        className="flex-1 overflow-y-auto px-6 py-4 space-y-4"
+        ref={messagesContainerRef}
+        onScroll={handleScroll}
+      >
+        {isLoadingHistory && (
+          <div className="flex justify-center text-xs text-secondary py-2">
+            Loading...
+          </div>
+        )}
+        {[...historyMessages, ...filteredActiveMessages].length === 0 ? (
           <div className="flex justify-center mt-10">
             <span className="text-xs bg-secondary text-secondary px-3 py-1 rounded">No messages yet.</span>
           </div>
         ) : (
-          filteredMessages.map((msg, idx) => {
+          [...historyMessages, ...filteredActiveMessages].map((msg, idx) => {
             const isMe = (msg.type === 'chat' && msg.sender_id?.toString() === currentUserId) ||
               (msg.type === 'NEW_CHAT_MESSAGE' && msg.data.sender_id?.toString() === currentUserId);
 

@@ -45,7 +45,8 @@ export const useChat = (currentUserId: number) => {
   const loadConversations = useCallback(async () => {
     try {
       const data = await chatApi.syncConversations();
-      setConversations(data);
+      // data is of type SyncAggregatedResponse
+      setConversations(data.conversations);
     } catch (err) {
       console.error('Failed to load conversations', err);
     }

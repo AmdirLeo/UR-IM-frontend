@@ -97,10 +97,13 @@ export const useWebSocket = (token: string | null): UseWebSocketReturn => {
 
           const innerData = data.data;
 
-          // 1. 拦截卡片类消息 (好友申请)
-          if (innerData?.msg_type === 'card' && innerData?.extra?.card_type === 'friend_apply') {
+          // 1. 拦截好友申请消息 (sender_id === -1)
+          if (innerData?.sender_id === -1) {
             console.log('🔔 成功拦截好友申请！放入专属列表。');
-            setFriendRequests((prev) => [...prev, data]);
+            setFriendRequests((prev) => {
+              if (prev.find(r => r.data.msg_id === innerData.msg_id)) return prev;
+              return [...prev, data];
+            });
             return; // 提前退出，别塞进聊天框
           }
 

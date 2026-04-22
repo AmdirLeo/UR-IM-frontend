@@ -37,7 +37,13 @@ export interface ConversationItem {
   pinned?: boolean;
 }
 
-export type SyncConversationsResponse = ConversationItem[];
+export interface SyncAggregatedResponse {
+  conversations: ConversationItem[];
+  pending_friend_requests: number;
+  pending_group_requests: number;
+}
+
+export type SyncConversationsResponse = SyncAggregatedResponse;
 
 export interface ReadAckRequest {
   conversation_id: number;
