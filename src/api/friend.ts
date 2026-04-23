@@ -82,13 +82,14 @@ export interface FriendTagListResponse {
 }
 
 export interface PendingFriendRequestItem {
-  msg_id: number;
-  msg_type: string;
+  card_type: string;
+  request_id: number;
   sender_id: number;
-  msg_content: string;
-  create_time: string;
-  quote_msg_id?: number | null;
-  quote_num?: number;
+  sender_name: string;
+  sender_avatar: string;
+  reason: string;
+  status: string;
+  create_time: number;
 }
 
 export interface PendingFriendRequestsResponse {

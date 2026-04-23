@@ -64,37 +64,43 @@ export const useWebSocket = (token: string | null): UseWebSocketReturn => {
         const { getPendingFriendRequests } = await import('../api/friend');
         const rawRequests = await getPendingFriendRequests();
 
-        const mappedRequests = rawRequests.map(msg => {
-          let realSenderId = -1;
-          try {
-            if (msg.msg_type === 'card' || msg.msg_type === 'notify') {
-              const contentObj = JSON.parse(msg.msg_content);
-              realSenderId = contentObj.extra?.sender_id || -1;
-            }
-          } catch (e) {
-            // ignore
-          }
-
+        const mappedRequests = rawRequests.map(req => {
           return {
             type: 'NEW_CHAT_MESSAGE' as const,
             data: {
-              conversation_id: -1, // Use -1 or whatever aligns with system UI
-              msg_id: msg.msg_id,
-              sender_id: msg.sender_id,
-              msg_type: msg.msg_type,
-              content: msg.msg_content,
-              create_time: msg.create_time,
-              quote_message_id: msg.quote_msg_id,
-              _applicant_id: realSenderId
+              conversation_id: -1,
+              msg_id: req.request_id, // Brilliant deduplication key
+              sender_id: -1,
+              msg_type: 'card',
+              content: JSON.stringify({
+                type: 'card',
+                content: `[收到一条好友申请]`,
+                extra: {
+                  card_type: req.card_type,
+                  request_id: req.request_id,
+                  sender_id: req.sender_id,
+                  sender_name: req.sender_name, // Pass the name through so UI doesn't have to fetch it!
+                  sender_avatar: req.sender_avatar,
+                  reason: req.reason,
+                  status: req.status
+                }
+              }),
+              create_time: new Date(req.create_time * 1000).toISOString(),
+              _applicant_id: req.sender_id
             }
           };
         });
 
         if (mappedRequests.length > 0) {
+          // Replace or deduplicate the cached list
           setFriendRequests(prev => {
             const newReqs = [...prev];
             mappedRequests.forEach(req => {
-              if (!newReqs.find(r => r.data.msg_id === req.data.msg_id)) {
+              const existingIdx = newReqs.findIndex(r => r.data.msg_id === req.data.msg_id);
+              if (existingIdx >= 0) {
+                // Update existing request status
+                newReqs[existingIdx] = req;
+              } else {
                 newReqs.push(req);
               }
             });

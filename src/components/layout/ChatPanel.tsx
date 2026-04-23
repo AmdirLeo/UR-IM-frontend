@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { MoreHorizontal } from 'lucide-react';
+import { MoreHorizontal, User } from 'lucide-react';
 import { useChatContext } from '../../context/ChatContext';
+import { ChevronsDown } from 'lucide-react';
 
 interface ChatPanelProps {
   activeChatId: number;
@@ -20,7 +21,7 @@ export const ChatPanel: React.FC<ChatPanelProps & { activeChatName?: string; act
   isConnected,
   sendMessage
 }) => {
-  const { messagesMap, loadMessageHistory } = useChatContext();
+  const { messagesMap, loadMessageHistory, markAsRead, conversations } = useChatContext();
   const [inputText, setInputText] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
@@ -30,8 +31,17 @@ export const ChatPanel: React.FC<ChatPanelProps & { activeChatName?: string; act
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const [hasMoreHistory, setHasMoreHistory] = useState(true);
 
+  // Unread badge state
+  const [floatingUnreadCount, setFloatingUnreadCount] = useState(0);
+  const isAtBottomRef = useRef(true);
+  const lastActiveChatIdRef = useRef<number | null>(null);
+  const lastProcessedMsgIdRef = useRef<number | null>(null);
+
   // Get active messages from the context map
   const activeMessages = messagesMap[activeChatId] || [];
+
+  // Find current conversation metadata
+  const currentConversation = conversations.find(c => c.conversation_id === activeChatId);
 
   // Resize handler for Chat Input Area
   useEffect(() => {
@@ -109,10 +119,50 @@ export const ChatPanel: React.FC<ChatPanelProps & { activeChatName?: string; act
       ? messagesContainerRef.current.scrollHeight - messagesContainerRef.current.scrollTop - messagesContainerRef.current.clientHeight < 100
       : false;
 
+    // Update our ref whenever activeMessages changes and we run this logic
+    isAtBottomRef.current = isAtBottom;
+
     if (isAtBottom) {
       messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }
   }, [activeMessages]);
+
+  // Handle incoming messages and read acks
+  useEffect(() => {
+    if (activeChatId !== lastActiveChatIdRef.current) {
+      // Switched to a new chat
+      lastActiveChatIdRef.current = activeChatId;
+      setFloatingUnreadCount(0);
+
+      // If there's an unread count upon opening the chat, clear it immediately
+      if (currentConversation && currentConversation.unread_count > 0 && activeMessages.length > 0) {
+        const lastMsg = activeMessages[activeMessages.length - 1];
+        if (lastMsg.msg_id) {
+          markAsRead(activeChatId, lastMsg.msg_id);
+        }
+      }
+    } else {
+      // Same chat, handle new messages
+      if (activeMessages.length > 0) {
+        const lastMsg = activeMessages[activeMessages.length - 1];
+
+        if (lastMsg.msg_id && lastProcessedMsgIdRef.current !== lastMsg.msg_id) {
+          lastProcessedMsgIdRef.current = lastMsg.msg_id;
+
+          // Ensure the message isn't sent by us to avoid read-acking our own outgoing messages
+          if (lastMsg.sender_id?.toString() !== currentUserId) {
+             if (isAtBottomRef.current) {
+               // We are at the bottom, mark as read immediately
+               markAsRead(activeChatId, lastMsg.msg_id);
+             } else {
+               // We are not at the bottom, and we received a new message that we didn't read
+               setFloatingUnreadCount(prev => prev + 1);
+             }
+          }
+        }
+      }
+    }
+  }, [activeChatId, activeMessages, currentConversation, currentUserId, markAsRead]);
 
   // Set up an IntersectionObserver on the 25th message to pre-fetch infinite scroll
   const observerTarget = useRef<HTMLDivElement>(null);
@@ -164,7 +214,7 @@ export const ChatPanel: React.FC<ChatPanelProps & { activeChatName?: string; act
   }, [activeChatId, activeMessages, isLoadingHistory, hasMoreHistory, loadMessageHistory]);
 
   return (
-    <div className="flex-1 h-full bg-primary flex flex-col min-w-[400px]">
+    <div className="flex-1 h-full bg-primary flex flex-col min-w-[400px] relative">
       {/* Header */}
       <div className="h-[60px] flex items-center justify-between px-6 border-b border-primary shrink-0">
         <div className="flex items-center">
@@ -183,6 +233,22 @@ export const ChatPanel: React.FC<ChatPanelProps & { activeChatName?: string; act
       <div
         className="flex-1 overflow-y-auto px-6 py-4 space-y-4"
         ref={messagesContainerRef}
+        onScroll={() => {
+          if (!messagesContainerRef.current) return;
+          const { scrollTop, scrollHeight, clientHeight } = messagesContainerRef.current;
+          const isAtBottom = scrollHeight - scrollTop - clientHeight < 100;
+          isAtBottomRef.current = isAtBottom;
+
+          if (isAtBottom && floatingUnreadCount > 0) {
+            setFloatingUnreadCount(0);
+            if (activeMessages.length > 0) {
+              const lastMsg = activeMessages[activeMessages.length - 1];
+              if (lastMsg.msg_id) {
+                markAsRead(activeChatId, lastMsg.msg_id);
+              }
+            }
+          }
+        }}
       >
         {isLoadingHistory && (
           <div className="flex justify-center text-xs text-secondary py-2">
@@ -250,7 +316,7 @@ export const ChatPanel: React.FC<ChatPanelProps & { activeChatName?: string; act
                     {currentUserAvatar ? (
                       <img src={formatAvatarUrl(currentUserAvatar)!} alt="avatar" className="w-full h-full object-cover" />
                     ) : (
-                      <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Felix" alt="avatar" className="w-full h-full object-cover" />
+                      <User className="text-[var(--sidebar-text)] w-6 h-6" />
                     )}
                   </div>
                 )}
@@ -260,6 +326,22 @@ export const ChatPanel: React.FC<ChatPanelProps & { activeChatName?: string; act
         )}
         <div ref={messagesEndRef} />
       </div>
+
+      {/* Floating Unread Badge */}
+      {floatingUnreadCount > 0 && (
+        <div className="absolute right-6" style={{ bottom: `${inputHeight + 20}px` }}>
+          <button
+            onClick={() => {
+              messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+              // It will automatically read and hide on the next scroll event
+            }}
+            className="flex items-center space-x-1 px-4 py-2 bg-white dark:bg-gray-800 text-[#07C160] rounded-full shadow-md hover:shadow-lg transition-all border border-gray-100 dark:border-gray-700 font-medium text-sm z-20 cursor-pointer"
+          >
+            <ChevronsDown className="w-4 h-4 text-[#07C160]" />
+            <span>{floatingUnreadCount}条新消息</span>
+          </button>
+        </div>
+      )}
 
       {/* Vertical Drag handle */}
       <div

@@ -20,7 +20,7 @@ interface MainLayoutProps {
 }
 
 export const MainLayout: React.FC<MainLayoutProps> = ({ currentUserId, username, onLogout }) => {
-  const { isConnected, messages, sendChatMessage, removeMessagesWithUser, loadConversations, conversations } = useChatContext();
+  const { isConnected, sendChatMessage, removeMessagesWithUser, loadConversations, conversations } = useChatContext();
   const { friends } = useContactContext();
   const userContext = React.useContext(UserContext);
   const currentUserAvatar = userContext?.userInfo?.avatar_url || null;
