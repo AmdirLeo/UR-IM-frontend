@@ -1,38 +1,37 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { MoreHorizontal } from 'lucide-react';
-import { WSMessage, NewChatMessage } from '../../hooks/useWebSocket';
-import { chatApi } from '../../api/chat';
+import { useChatContext } from '../../context/ChatContext';
 
 interface ChatPanelProps {
   activeChatId: number;
   currentUserId: string;
   isConnected: boolean;
-  messages: WSMessage[];
-  sendMessage: (receiverId: number, content: string, senderId: number) => void;
+  sendMessage: (conversationId: number, content: string, type?: "text" | "image" | "card" | "notify") => void;
 }
 
 import { formatAvatarUrl } from '../../utils/url';
 
-export const ChatPanel: React.FC<ChatPanelProps & { activeChatName?: string; activeChatAvatar?: string | null; }> = ({
+export const ChatPanel: React.FC<ChatPanelProps & { activeChatName?: string; activeChatAvatar?: string | null; currentUserAvatar?: string | null; }> = ({
   activeChatId,
   activeChatName,
   activeChatAvatar,
   currentUserId,
+  currentUserAvatar,
   isConnected,
-  messages,
   sendMessage
 }) => {
+  const { messagesMap, loadMessageHistory } = useChatContext();
   const [inputText, setInputText] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
 
   const [inputHeight, setInputHeight] = useState(120);
   const [isResizingVertical, setIsResizingVertical] = useState(false);
-
-  // Unified Local Cache for History
-  const [historyMessages, setHistoryMessages] = useState<WSMessage[]>([]);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const [hasMoreHistory, setHasMoreHistory] = useState(true);
+
+  // Get active messages from the context map
+  const activeMessages = messagesMap[activeChatId] || [];
 
   // Resize handler for Chat Input Area
   useEffect(() => {
@@ -67,9 +66,8 @@ export const ChatPanel: React.FC<ChatPanelProps & { activeChatName?: string; act
 
   const handleSend = () => {
     if (!inputText.trim() || !isConnected) return;
-    const parsedCurrentId = parseInt(currentUserId, 10);
-    // Use activeChatId as the receiver for this UI mockup
-    sendMessage(activeChatId, inputText, parsedCurrentId);
+    // activeChatId is now strictly conversation_id
+    sendMessage(activeChatId, inputText, "text");
     setInputText('');
   };
 
@@ -80,139 +78,90 @@ export const ChatPanel: React.FC<ChatPanelProps & { activeChatName?: string; act
     }
   };
 
-  const processHistoryMessages = useCallback((data: any[]) => {
-    const validMessages: WSMessage[] = [];
-    const friendRequests: any[] = [];
-    const cachedReqsRaw = localStorage.getItem('cached_friend_requests');
-    const cachedReqs = cachedReqsRaw ? JSON.parse(cachedReqsRaw) : [];
-
-    data.forEach(msg => {
-      // Unify History structure to match WSMessage
-      const formattedMsg: NewChatMessage = {
-        type: 'NEW_CHAT_MESSAGE',
-        data: {
-          conversation_id: activeChatId,
-          msg_id: msg.msg_id,
-          sender_id: msg.sender_id,
-          msg_type: msg.msg_type,
-          content: msg.msg_content,
-          create_time: msg.create_time,
-          quote_message_id: msg.quote_msg_id
-        }
-      };
-
-      // 拦截好友申请消息 (sender_id === -1)
-      if (msg.sender_id === -1) {
-        if (!cachedReqs.find((r: any) => r.data.msg_id === msg.msg_id)) {
-          friendRequests.push(formattedMsg);
-        }
-      } else {
-        validMessages.push(formattedMsg);
-      }
-    });
-
-    if (friendRequests.length > 0) {
-      localStorage.setItem('cached_friend_requests', JSON.stringify([...cachedReqs, ...friendRequests]));
-      window.dispatchEvent(new Event('storage'));
-    }
-
-    return validMessages;
-  }, [activeChatId]);
-
   // Initial Load History (Triggered by Conversation Change)
   useEffect(() => {
     if (!activeChatId) return;
 
-    const fetchInitialHistory = async () => {
+    // Only fetch if we don't have messages yet
+    if (!messagesMap[activeChatId] || messagesMap[activeChatId].length === 0) {
       setIsLoadingHistory(true);
-      try {
-        // TODO: The conversation_id logic here is currently incorrect and will be fixed later
-        const data = await chatApi.getMessageHistory({
-          conversation_id: activeChatId,
-          limit: 30,
-        });
-
-        const processed = processHistoryMessages(data);
-        setHistoryMessages(processed.reverse());
+      loadMessageHistory(activeChatId, undefined, 30).then((data) => {
         setHasMoreHistory(data.length === 30);
-      } catch (error) {
-        console.error("Failed to load history:", error);
-      } finally {
         setIsLoadingHistory(false);
         setTimeout(() => {
            messagesEndRef.current?.scrollIntoView({ behavior: 'auto' });
         }, 100);
-      }
-    };
+      }).catch((e) => {
+        console.error("Failed to load history:", e);
+        setIsLoadingHistory(false);
+      });
+    } else {
+      // We already have messages, so just scroll to bottom if needed
+      setTimeout(() => {
+         messagesEndRef.current?.scrollIntoView({ behavior: 'auto' });
+      }, 100);
+    }
+  }, [activeChatId, loadMessageHistory]); // Only run when chat ID changes
 
-    fetchInitialHistory();
-  }, [activeChatId, processHistoryMessages]);
-
+  // Scroll down smoothly on new messages if at bottom
   useEffect(() => {
     const isAtBottom = messagesContainerRef.current
       ? messagesContainerRef.current.scrollHeight - messagesContainerRef.current.scrollTop - messagesContainerRef.current.clientHeight < 100
       : false;
 
-    if (isAtBottom || messages.length > 0) {
+    if (isAtBottom) {
       messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }
-  }, [messages]);
+  }, [activeMessages]);
 
-  const handleScroll = async (e: React.UIEvent<HTMLDivElement>) => {
-    if (e.currentTarget.scrollTop === 0) {
-      if (isLoadingHistory || !hasMoreHistory || historyMessages.length === 0) return;
+  // Set up an IntersectionObserver on the 25th message to pre-fetch infinite scroll
+  const observerTarget = useRef<HTMLDivElement>(null);
 
-      setIsLoadingHistory(true);
+  useEffect(() => {
+    if (isLoadingHistory || !hasMoreHistory || activeMessages.length === 0) return;
 
-      const oldestMsg = historyMessages[0];
-      let cursorId: number | undefined;
-      if (oldestMsg.type === 'NEW_CHAT_MESSAGE') {
-        cursorId = oldestMsg.data.msg_id;
-      }
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && !isLoadingHistory && hasMoreHistory) {
+          const fetchMore = async () => {
+            setIsLoadingHistory(true);
+            const oldestMsg = activeMessages[0];
+            const cursorId = oldestMsg?.msg_id;
+            const prevScrollHeight = messagesContainerRef.current?.scrollHeight || 0;
 
-      const prevScrollHeight = messagesContainerRef.current?.scrollHeight || 0;
+            try {
+              // Note: loadMessageHistory modifies state directly
+              const olderData = await loadMessageHistory(activeChatId, cursorId, 30);
+              setHasMoreHistory(olderData.length === 30);
 
-      try {
-        // TODO: The conversation_id logic here is currently incorrect and will be fixed later
-        const olderData = await chatApi.getMessageHistory({
-          conversation_id: activeChatId,
-          start_msg_id: cursorId,
-          limit: 30,
-        });
-
-        const processed = processHistoryMessages(olderData);
-
-        if (processed.length > 0) {
-          setHistoryMessages(prev => [...processed.reverse(), ...prev]);
-
-          setTimeout(() => {
-            if (messagesContainerRef.current) {
-              const newScrollHeight = messagesContainerRef.current.scrollHeight;
-              messagesContainerRef.current.scrollTop = newScrollHeight - prevScrollHeight;
+              if (olderData.length > 0) {
+                setTimeout(() => {
+                  if (messagesContainerRef.current) {
+                    const newScrollHeight = messagesContainerRef.current.scrollHeight;
+                    messagesContainerRef.current.scrollTop = newScrollHeight - prevScrollHeight;
+                  }
+                }, 0);
+              }
+            } catch (error) {
+              console.error("Failed to load more history:", error);
+            } finally {
+              setIsLoadingHistory(false);
             }
-          }, 0);
+          };
+          fetchMore();
         }
-        setHasMoreHistory(olderData.length === 30);
-      } catch (error) {
-        console.error("Failed to load more history:", error);
-      } finally {
-        setIsLoadingHistory(false);
-      }
-    }
-  };
+      },
+      { root: messagesContainerRef.current, threshold: 0.1 }
+    );
 
-  // Filter messages to only show ones relevant to the active chat
-  const filteredActiveMessages = messages.filter(msg => {
-    if (msg.type === 'NEW_CHAT_MESSAGE') {
-      const isRelevant = msg.data.sender_id === activeChatId || msg.data.conversation_id === activeChatId;
-      return isRelevant;
-    } else if (msg.type === 'chat' || msg.type === 'private' || msg.type === 'broadcast') {
-      // optimistic messages where we sent it
-      const targetId = (msg as { target_id?: number }).target_id;
-      return targetId === activeChatId || msg.sender_id === activeChatId || msg.receiver_id === activeChatId;
+    if (observerTarget.current) {
+      observer.observe(observerTarget.current);
     }
-    return false; // hide system messages if they don't have conversation info, or handle them elsewhere
-  });
+
+    return () => {
+      observer.disconnect();
+    };
+  }, [activeChatId, activeMessages, isLoadingHistory, hasMoreHistory, loadMessageHistory]);
 
   return (
     <div className="flex-1 h-full bg-primary flex flex-col min-w-[400px]">
@@ -234,54 +183,55 @@ export const ChatPanel: React.FC<ChatPanelProps & { activeChatName?: string; act
       <div
         className="flex-1 overflow-y-auto px-6 py-4 space-y-4"
         ref={messagesContainerRef}
-        onScroll={handleScroll}
       >
         {isLoadingHistory && (
           <div className="flex justify-center text-xs text-secondary py-2">
             Loading...
           </div>
         )}
-        {[...historyMessages, ...filteredActiveMessages].length === 0 ? (
+        {activeMessages.length === 0 ? (
           <div className="flex justify-center mt-10">
             <span className="text-xs bg-secondary text-secondary px-3 py-1 rounded">No messages yet.</span>
           </div>
         ) : (
-          [...historyMessages, ...filteredActiveMessages].map((msg, idx) => {
-            const isMe = (msg.type === 'chat' && msg.sender_id?.toString() === currentUserId) ||
-              (msg.type === 'NEW_CHAT_MESSAGE' && msg.data.sender_id?.toString() === currentUserId);
+          activeMessages.map((msg, idx) => {
+            // The 25th element from the end of the loaded chunk acts as the infinite scroll trigger.
+            // But since older messages are at index 0, we can just observe index ~19 (or 0 if array < 25)
+            // Wait, we prepend older messages. If array length > 25, observe index 19. Otherwise index 0.
+            const thresholdIndex = activeMessages.length > 25 ? 19 : 0;
+            const isThresholdNode = idx === thresholdIndex;
 
-            if (msg.type === 'system') {
-              return (
-                <div key={idx} className="flex justify-center my-4">
-                  <span className="text-xs bg-secondary text-secondary px-3 py-1 rounded">
-                    {msg.message}
-                  </span>
-                </div>
-              );
-            }
+            // LocalMessage has sender_id directly at top level
+            const isMe = msg.sender_id?.toString() === currentUserId;
 
-            let messageContent = '';
-            if (msg.type === 'chat' || msg.type === 'private' || msg.type === 'broadcast') {
-              messageContent = msg.content;
-            } else if (msg.type === 'NEW_CHAT_MESSAGE') {
-              messageContent = msg.data.content;
+            let parsedContent = msg.msg_content;
+            if (parsedContent && typeof parsedContent === 'string' && parsedContent.startsWith('{')) {
+              try {
+                const parsedObj = JSON.parse(parsedContent);
+                parsedContent = parsedObj.content || parsedContent;
+              } catch (e) {
+                // Ignore parse errors, fallback to raw string
+              }
             }
 
             return (
-              <div key={idx} className={`flex ${isMe ? 'justify-end' : 'justify-start'} mb-4`}>
+              <div key={idx} ref={isThresholdNode ? observerTarget : null} className={`flex ${isMe ? 'justify-end' : 'justify-start'} mb-4 ${msg.isFailed ? 'opacity-50' : ''}`}>
                 {!isMe && (
-                  <div className="w-9 h-9 bg-gray-300 rounded flex-shrink-0 mr-3 mt-1 flex items-center justify-center overflow-hidden">
-                    {(msg.type === 'NEW_CHAT_MESSAGE' && msg.data.sender_id === -1) ? (
-                       <img src="https://api.dicebear.com/7.x/bottts/svg?seed=System" alt="system" className="w-full h-full object-cover" />
-                    ) : activeChatAvatar ? (
-                       <img src={formatAvatarUrl(activeChatAvatar)!} alt="avatar" className="w-full h-full object-cover" />
-                    ) : (
-                      <span className="text-gray-500 font-bold opacity-50">{activeChatName?.charAt(0) || '?'}</span>
-                    )}
+                  <div className="flex flex-col items-center mr-3">
+                    <span className="text-[10px] text-secondary mb-1 whitespace-nowrap overflow-hidden text-ellipsis max-w-[60px]">{activeChatName || msg.sender_id}</span>
+                    <div className="w-9 h-9 bg-gray-300 rounded flex-shrink-0 flex items-center justify-center overflow-hidden">
+                      {msg.sender_id === -1 ? (
+                         <img src="https://api.dicebear.com/7.x/bottts/svg?seed=System" alt="system" className="w-full h-full object-cover" />
+                      ) : activeChatAvatar ? (
+                         <img src={formatAvatarUrl(activeChatAvatar)!} alt="avatar" className="w-full h-full object-cover" />
+                      ) : (
+                        <span className="text-gray-500 font-bold opacity-50">{activeChatName?.charAt(0) || '?'}</span>
+                      )}
+                    </div>
                   </div>
                 )}
 
-                <div className={`max-w-[70%] ${isMe ? 'bg-bubble-self text-primary' : 'bg-bubble-other text-primary'} rounded p-2.5 shadow-sm border ${isMe ? 'border-primary' : 'border-primary'} relative`}>
+                <div className={`max-w-[70%] ${isMe ? 'bg-bubble-self text-primary' : 'bg-bubble-other text-primary'} rounded p-2.5 shadow-sm border ${isMe ? 'border-primary' : 'border-primary'} relative ${!isMe ? 'mt-4' : ''}`}>
                   {/* Tiny triangle pointer */}
                   <div className={`absolute top-3 w-0 h-0 border-y-[6px] border-y-transparent ${isMe
                     ? 'right-[-6px] border-l-[6px] border-l-[#95EC69] dark:border-l-[#2B2B2B]'
@@ -289,13 +239,19 @@ export const ChatPanel: React.FC<ChatPanelProps & { activeChatName?: string; act
                     }`} />
 
                   <p className="text-primary text-base leading-relaxed whitespace-pre-wrap word-break">
-                    {messageContent}
+                    {parsedContent}
                   </p>
+                  {msg.isSending && <span className="absolute bottom-[-15px] right-0 text-[10px] text-tertiary">Sending...</span>}
+                  {msg.isFailed && <span className="absolute bottom-[-15px] right-0 text-[10px] text-danger">Failed</span>}
                 </div>
 
                 {isMe && (
                   <div className="w-9 h-9 bg-gray-300 rounded flex-shrink-0 ml-3 mt-1 flex items-center justify-center overflow-hidden">
-                    <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Felix" alt="avatar" className="w-full h-full object-cover" />
+                    {currentUserAvatar ? (
+                      <img src={formatAvatarUrl(currentUserAvatar)!} alt="avatar" className="w-full h-full object-cover" />
+                    ) : (
+                      <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Felix" alt="avatar" className="w-full h-full object-cover" />
+                    )}
                   </div>
                 )}
               </div>
