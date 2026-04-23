@@ -33,7 +33,6 @@ interface UseWebSocketReturn {
   isConnected: boolean;
   messages: WSMessage[];
   friendRequests: NewChatMessage[];
-  sendMessage: (receiverId: number, content: string, currentUserId: number) => void;
   removeFriendRequest: (msgId: number) => void;
   removeMessagesWithUser: (userId: number) => void;
 }
@@ -100,9 +99,28 @@ export const useWebSocket = (token: string | null): UseWebSocketReturn => {
           // 1. 拦截好友申请消息 (sender_id === -1)
           if (innerData?.sender_id === -1) {
             console.log('🔔 成功拦截好友申请！放入专属列表。');
+            // Parse actual sender id from JSON extra payload
+            let realSenderId = -1;
+            try {
+              if (innerData.msg_type === 'card' || innerData.msg_type === 'notify') {
+                const contentObj = JSON.parse(innerData.content);
+                realSenderId = contentObj.extra?.sender_id || -1;
+              }
+            } catch (e) {
+               // ignore
+            }
+
+            const enrichedData = {
+              ...data,
+              data: {
+                ...innerData,
+                _applicant_id: realSenderId
+              }
+            };
+
             setFriendRequests((prev) => {
               if (prev.find(r => r.data.msg_id === innerData.msg_id)) return prev;
-              return [...prev, data];
+              return [...prev, enrichedData];
             });
             return; // 提前退出，别塞进聊天框
           }
@@ -147,34 +165,6 @@ export const useWebSocket = (token: string | null): UseWebSocketReturn => {
     };
   }, [token]);
 
-  const sendMessage = useCallback(async (receiverId: number, content: string, currentUserId: number) => {
-    // 乐观更新 UI
-    setMessages((prev) => [...prev, { type: 'chat', sender_id: currentUserId, target_id: receiverId, content } as ChatMessage]);
-
-    try {
-      // 导入 chatApi，改为调用 HTTP 接口发消息 (根据 Sprint 1 后端重构的要求)
-      // 注意：这里需要你实际导入 chatApi, 如果你在同一个文件，或者从 api 导入
-      const { chatApi } = await import('../api/chat');
-      const { v4: uuidv4 } = await import('uuid');
-
-      const reqPayload = {
-        conversation_id: receiverId, // 这里复用 receiverId 作为 conversation_id，实际应用中可能需要查找
-        local_id: uuidv4(),
-        message_content: content,
-        msg_type: "text" as const,
-      };
-
-      await chatApi.sendMessage(reqPayload);
-
-      // 注意：发送成功后，如果后端不通过 WS 将自己的消息回推给你，
-      // 这个乐观更新就可以保留。如果有回推，可以在收到 NEW_CHAT_MESSAGE 后根据 local_id 去重。
-    } catch (err) {
-      console.error('发送消息失败', err);
-      // 可以补充发送失败的 UI 逻辑
-    }
-  }, []);
-
-
   const removeFriendRequest = useCallback((msgId: number) => {
     setFriendRequests((prev) => prev.filter((req) => req.data.msg_id !== msgId));
   }, []);
@@ -190,5 +180,5 @@ export const useWebSocket = (token: string | null): UseWebSocketReturn => {
     }));
   }, []);
 
-  return { isConnected, messages, friendRequests, sendMessage, removeFriendRequest, removeMessagesWithUser };
+  return { isConnected, messages, friendRequests, removeFriendRequest, removeMessagesWithUser };
 };

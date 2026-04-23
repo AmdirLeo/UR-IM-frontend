@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo, useRef } from 'react';
+import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { chatApi, ConversationItem, HistoryMessageItem, SendMessageRequest } from '../api/chat';
 
@@ -16,13 +16,42 @@ export interface LocalMessage extends Partial<HistoryMessageItem> {
 
 export const useChat = (currentUserId: number) => {
   const [conversations, setConversations] = useState<ConversationItem[]>([]);
-  // Store messages by conversation_id
-  const [messagesMap, setMessagesMap] = useState<Record<number, LocalMessage[]>>({});
+
+  // Store messages by conversation_id, lazily initialized from localStorage
+  const [messagesMap, setMessagesMap] = useState<Record<number, LocalMessage[]>>(() => {
+    try {
+      const cached = localStorage.getItem(`chat_messages_map_${currentUserId}`);
+      if (cached) {
+        return JSON.parse(cached);
+      }
+    } catch (e) {
+      console.error('Failed to load cached messages map', e);
+    }
+    return {};
+  });
 
   // A global map to easily lookup quoted messages by their actual msg_id
   // This is a ref because we don't need to trigger re-renders when it updates
   // and we want it immediately available.
   const quotedMessagesMap = useRef<Map<number, HistoryMessageItem | LocalMessage>>(new Map());
+
+  // Track dynamic system conversation ID
+  const systemConvIdRef = useRef<number | null>(null);
+
+  // Persist messagesMap to localStorage on change
+  // Limit to 50 messages per conversation to avoid QuotaExceeded errors
+  useEffect(() => {
+    try {
+      const mapToCache: Record<number, LocalMessage[]> = {};
+      for (const [convId, msgs] of Object.entries(messagesMap)) {
+        // keep only the last 50 messages per conversation
+          mapToCache[Number(convId)] = (msgs as LocalMessage[]).slice(-50);
+      }
+      localStorage.setItem(`chat_messages_map_${currentUserId}`, JSON.stringify(mapToCache));
+    } catch (e) {
+      console.error('Failed to cache messages map', e);
+    }
+  }, [messagesMap, currentUserId]);
 
   /**
    * Sort conversations:
@@ -44,9 +73,102 @@ export const useChat = (currentUserId: number) => {
 
   const loadConversations = useCallback(async () => {
     try {
-      const data = await chatApi.syncConversations();
-      // data is of type SyncAggregatedResponse
-      setConversations(data.conversations);
+      const response = await chatApi.syncConversations();
+      const data = (response as any).data || response;
+
+      if (!data || !Array.isArray(data.conversations)) return;
+
+      // Find system conversation and cache its id
+      const systemConv = data.conversations.find((c: any) => c.last_msg_sender_id === -1);
+
+      let unreadCount = 0;
+      if (systemConv) {
+        systemConvIdRef.current = systemConv.conversation_id;
+        unreadCount = systemConv.unread_count || 0;
+      }
+
+      // Filter out the system conversation so it doesn't show in the list
+      const userConversations = data.conversations.filter(c => c.conversation_id !== systemConvIdRef.current);
+      setConversations(userConversations);
+
+      // Fallback: If there are unread friend requests based on the sync data summary,
+      // but the system conversation wasn't found or unread_count was missing, we use pending_friend_requests
+      const pendingCount = Math.max(unreadCount, data.pending_friend_requests || 0);
+
+      // Recursively fetch system history if needed and systemConvId is known
+      if (systemConvIdRef.current !== null && pendingCount > 0) {
+        let fetchedCount = 0;
+        let currentCursor: number | undefined = undefined;
+        const friendRequests: any[] = [];
+
+        // Implement a safety cap to prevent an infinite loop in case of bad backend data
+        let safetyCap = 10; // Max 10 pagination calls
+        while (fetchedCount < pendingCount && safetyCap > 0) {
+          safetyCap--;
+          let historyBatch: any[] = [];
+          try {
+            historyBatch = await chatApi.getMessageHistory({
+              conversation_id: systemConvIdRef.current,
+              limit: 50,
+              start_msg_id: currentCursor
+            });
+            // safely unwrap standard wrapper if needed
+            historyBatch = Array.isArray(historyBatch) ? historyBatch : ((historyBatch as any).data || []);
+          } catch (e) {
+            console.error('Failed to fetch system history batch', e);
+            break; // Stop recursive fetching on error to prevent infinite loops
+          }
+
+          if (!Array.isArray(historyBatch) || historyBatch.length === 0) break;
+
+          historyBatch.forEach(msg => {
+            if (msg.sender_id === -1) {
+              // Parse actual sender id from JSON extra payload
+              let realSenderId = -1;
+              try {
+                if (msg.msg_type === 'card' || msg.msg_type === 'notify') {
+                  const contentObj = JSON.parse(msg.msg_content);
+                  realSenderId = contentObj.extra?.sender_id || -1;
+                }
+              } catch (e) {
+                 // ignore
+              }
+
+              const formattedMsg = {
+                type: 'NEW_CHAT_MESSAGE',
+                data: {
+                  conversation_id: systemConvIdRef.current,
+                  msg_id: msg.msg_id,
+                  sender_id: msg.sender_id, // keep it -1 to denote it's a friend request
+                  msg_type: msg.msg_type,
+                  content: msg.msg_content,
+                  create_time: msg.create_time,
+                  quote_message_id: msg.quote_msg_id,
+                  // add an internal field for tracking the applicant
+                  _applicant_id: realSenderId
+                }
+              };
+              friendRequests.push(formattedMsg);
+              fetchedCount++;
+            }
+          });
+
+          currentCursor = historyBatch[historyBatch.length - 1].msg_id;
+        }
+
+        if (friendRequests.length > 0) {
+          const cachedRaw = localStorage.getItem('cached_friend_requests');
+          const cached = cachedRaw ? JSON.parse(cachedRaw) : [];
+          friendRequests.forEach(newReq => {
+            if (!cached.find((r: any) => r.data.msg_id === newReq.data.msg_id)) {
+              cached.push(newReq);
+            }
+          });
+          localStorage.setItem('cached_friend_requests', JSON.stringify(cached));
+          window.dispatchEvent(new Event('storage')); // Notify context
+        }
+      }
+
     } catch (err) {
       console.error('Failed to load conversations', err);
     }
@@ -54,14 +176,79 @@ export const useChat = (currentUserId: number) => {
 
   const loadMessageHistory = useCallback(async (conversationId: number, startMsgId?: number, limit: number = 50) => {
     try {
-      const history = await chatApi.getMessageHistory({ conversation_id: conversationId, start_msg_id: startMsgId, limit });
+      // For initial load (no startMsgId), we could potentially use the cache to avoid a network call.
+      // But standard practice dictates we fetch the latest anyway to catch up on missed messages.
+      // The cache provides immediate UI rendering in ChatPanel before this promise resolves.
+      const historyResponse = await chatApi.getMessageHistory({ conversation_id: conversationId, start_msg_id: startMsgId, limit });
+      // Safely unwrap the standard backend payload wrapper if it exists
+      const history: HistoryMessageItem[] = Array.isArray(historyResponse)
+        ? historyResponse
+        : ((historyResponse as any).data || []);
+
+      if (!Array.isArray(history)) {
+        throw new Error("Invalid history response format");
+      }
+
+      // Intercept friend requests if this is the system conversation
+      if (conversationId === systemConvIdRef.current || history.some(m => m.sender_id === -1)) {
+        const friendRequests: any[] = [];
+        const normalHistory = history.filter(msg => {
+          if (msg.sender_id === -1) {
+            let realSenderId = -1;
+            try {
+              if (msg.msg_type === 'card' || msg.msg_type === 'notify') {
+                const contentObj = JSON.parse(msg.msg_content);
+                realSenderId = contentObj.extra?.sender_id || -1;
+              }
+            } catch (e) {
+               // ignore
+            }
+            const formattedMsg = {
+              type: 'NEW_CHAT_MESSAGE',
+              data: {
+                conversation_id: conversationId,
+                msg_id: msg.msg_id,
+                sender_id: msg.sender_id,
+                msg_type: msg.msg_type,
+                content: msg.msg_content,
+                create_time: msg.create_time,
+                quote_message_id: msg.quote_msg_id,
+                _applicant_id: realSenderId
+              }
+            };
+            friendRequests.push(formattedMsg);
+            return false; // exclude from normal chat history
+          }
+          return true; // keep normal message
+        });
+
+        if (friendRequests.length > 0) {
+          const cachedRaw = localStorage.getItem('cached_friend_requests');
+          const cached = cachedRaw ? JSON.parse(cachedRaw) : [];
+          friendRequests.forEach(newReq => {
+            if (!cached.find((r: any) => r.data.msg_id === newReq.data.msg_id)) {
+              cached.push(newReq);
+            }
+          });
+          localStorage.setItem('cached_friend_requests', JSON.stringify(cached));
+          window.dispatchEvent(new Event('storage')); // Notify context
+        }
+
+        // If it's pure system conversation, just return the filtered history (likely empty if all are requests)
+        if (conversationId === systemConvIdRef.current) {
+          return normalHistory;
+        }
+      }
 
       // Update our quotedMessagesMap reference Map
       history.forEach(msg => {
         quotedMessagesMap.current.set(msg.msg_id, msg);
       });
 
-      const localHistory: LocalMessage[] = history.map(msg => ({
+      // Reverse history so oldest is first (index 0)
+      const reversedHistory = [...history].reverse();
+
+      const localHistory: LocalMessage[] = reversedHistory.map(msg => ({
         ...msg,
         local_id: uuidv4(), // Give it a local ID just for React key mapping consistency
         isSending: false,
@@ -70,12 +257,24 @@ export const useChat = (currentUserId: number) => {
 
       setMessagesMap(prev => {
         const existing = prev[conversationId] || [];
-        // If we are loading older messages, prepend them. If it's a fresh load, replace.
-        // For simplicity, we just merge and deduplicate by msg_id if needed, but here we assume it's a prepend
-        return {
-          ...prev,
-          [conversationId]: startMsgId ? [...localHistory, ...existing] : localHistory
-        };
+
+        // Deduplicate the loaded history against what's already cached.
+        // If we have a startMsgId, we prepend. If not (initial load), we replace or merge safely.
+        if (startMsgId) {
+          return {
+            ...prev,
+            [conversationId]: [...localHistory, ...existing]
+          };
+        } else {
+          // Merge initial fetch with optimistic messages currently unsent or newly arrived WS messages
+          // taking care not to duplicate
+          const existingIds = new Set(localHistory.map(m => m.msg_id));
+          const nonDuplicatedExisting = existing.filter(m => m.msg_id == null || !existingIds.has(m.msg_id));
+          return {
+            ...prev,
+            [conversationId]: [...localHistory, ...nonDuplicatedExisting]
+          };
+        }
       });
       return history;
     } catch (err) {
@@ -135,7 +334,8 @@ export const useChat = (currentUserId: number) => {
 
       const res = await chatApi.sendMessage(reqPayload);
 
-      if (res.code === 0 && res.data) {
+      // Support both 0 and 200 as valid backend success codes
+      if ((res.code === 0 || res.code === 200) && res.data) {
         // Success: Update the local message with the real msg_id and server_time
         const { msg_id, server_time } = res.data;
 
@@ -145,7 +345,7 @@ export const useChat = (currentUserId: number) => {
             ...prev,
             [conversationId]: conversationMessages.map(msg =>
               msg.local_id === localId
-                ? { ...msg, msg_id, create_time: server_time, isSending: false }
+                ? { ...msg, msg_id, create_time: server_time, isSending: false, isFailed: false }
                 : msg
             )
           };
@@ -153,10 +353,19 @@ export const useChat = (currentUserId: number) => {
 
         // Add to our reference map so others can quote it
         optimisticMessage.msg_id = msg_id;
-        quotedMessagesMap.current.set(msg_id, { ...optimisticMessage, msg_id, create_time: server_time, isSending: false } as LocalMessage);
+        quotedMessagesMap.current.set(msg_id, { ...optimisticMessage, msg_id, create_time: server_time, isSending: false, isFailed: false } as LocalMessage);
+
+        // If conversation is new and not in our array, sync it from backend
+        setConversations(prev => {
+          if (!prev.find(c => c.conversation_id === conversationId)) {
+            // It's a brand new conversation, asynchronously load to fetch full metadata
+            loadConversations();
+          }
+          return prev;
+        });
 
       } else {
-        throw new Error(res.msg || "Send failed");
+        throw new Error(res.msg || `Send failed with backend code: ${res.code}`);
       }
     } catch (err) {
       console.error('Send message failed', err);
@@ -171,7 +380,7 @@ export const useChat = (currentUserId: number) => {
         };
       });
     }
-  }, [currentUserId]);
+  }, [currentUserId, loadConversations]);
 
   const markAsRead = useCallback(async (conversationId: number, msgId: number) => {
     try {
@@ -184,6 +393,66 @@ export const useChat = (currentUserId: number) => {
       console.error('Failed to mark read', err);
     }
   }, []);
+
+  const receiveIncomingMessage = useCallback((msgData: any) => {
+    const convId = msgData.conversation_id;
+    if (!convId) return;
+
+    // Build a LocalMessage from the raw WS data
+    const newMsg: LocalMessage = {
+      local_id: uuidv4(),
+      msg_id: msgData.msg_id,
+      msg_type: msgData.msg_type,
+      msg_content: msgData.content,
+      create_time: msgData.create_time,
+      sender_id: msgData.sender_id,
+      quote_msg_id: msgData.quote_message_id,
+      isSending: false,
+      isFailed: false,
+    };
+
+    setMessagesMap(prev => {
+      const existing = prev[convId] || [];
+      // Prevent duplicates if already pushed optimistically or by history
+      // Note: The optimistic phase updates local_id with the real msg_id.
+      // Thus, when the WS echoes the same message, m.msg_id === newMsg.msg_id will match
+      // and silently drop the WS echo, perfectly keeping the existing state.
+      if (existing.find(m => m.msg_id === newMsg.msg_id)) {
+        return prev;
+      }
+      return {
+        ...prev,
+        [convId]: [...existing, newMsg]
+      };
+    });
+
+    if (newMsg.msg_id) {
+      quotedMessagesMap.current.set(newMsg.msg_id, newMsg as any);
+    }
+
+    setConversations(prev => {
+      const exists = prev.find(c => c.conversation_id === convId);
+      if (!exists) {
+        // Unknown conversation coming from WS, sync to fetch full metadata
+        loadConversations();
+        return prev;
+      }
+
+      return prev.map(conv => {
+        if (conv.conversation_id === convId) {
+          return {
+            ...conv,
+            last_msg_content: newMsg.msg_content,
+            last_msg_send_time: newMsg.create_time,
+            last_msg_sender_id: newMsg.sender_id,
+            last_msg_type: newMsg.msg_type,
+            unread_count: conv.unread_count + 1
+          };
+        }
+        return conv;
+      });
+    });
+  }, [loadConversations]);
 
   /**
    * BUSINESS ADVICE FOR WEBSOCKET INTEGRATION:
@@ -207,5 +476,6 @@ export const useChat = (currentUserId: number) => {
     loadMessageHistory,
     sendChatMessage,
     markAsRead,
+    receiveIncomingMessage,
   };
 };
