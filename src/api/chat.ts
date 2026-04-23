@@ -25,7 +25,7 @@ export interface SendMessageResponse {
 
 export interface ConversationItem {
   conversation_id: number;
-  type: "single" | "group";
+  type: "private" | "group";
   unread_count: number;
   last_ack_msg_id?: number;
   last_msg_id?: number;
@@ -35,6 +35,11 @@ export interface ConversationItem {
   last_msg_send_time?: string; // ISO 8601 string
   muted?: boolean;
   pinned?: boolean;
+  // Optional target mapping fields returned by sync API
+  target_id?: number;
+  target_user_id?: number;
+  name?: string;
+  avatar_url?: string;
 }
 
 export interface SyncAggregatedResponse {
@@ -113,6 +118,10 @@ export interface PinConversationRequest {
   is_pinned: boolean;
 }
 
+export interface DirectConversationData {
+  conversation_id: number;
+}
+
 
 // ==========================================
 // API Layer (Axios wrapper functions)
@@ -157,5 +166,10 @@ export const chatApi = {
   pinConversation: async (data: PinConversationRequest): Promise<{code: number, msg: string}> => {
     const response = await api.put('/conversation/pin', data);
     return response.data;
+  },
+
+  getDirectConversation: async (friend_user_id: number): Promise<DirectConversationData> => {
+    const response = await api.get(`/conversation/direct/${friend_user_id}`);
+    return response.data.data;
   }
 };

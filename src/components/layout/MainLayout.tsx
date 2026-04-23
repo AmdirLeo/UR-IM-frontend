@@ -7,6 +7,9 @@ import { ContactDetail } from './ContactDetail';
 import { TagManagementPanel } from './TagManagementPanel';
 import { useContactContext } from '../../context/ContactContext';
 import { useChatContext } from '../../context/ChatContext';
+import { useChat } from '../../hooks/useChat';
+import { chatApi } from '../../api/chat';
+import { UserContext } from '../../context/UserContext';
 import { SettingsOverlay } from './SettingsOverlay';
 import { UserProfile } from './UserProfile';
 
@@ -18,8 +21,10 @@ interface MainLayoutProps {
 }
 
 export const MainLayout: React.FC<MainLayoutProps> = ({ currentUserId, username, onLogout }) => {
-  const { isConnected, messages, sendMessage, removeMessagesWithUser } = useChatContext();
+  const { isConnected, messages, sendChatMessage, removeMessagesWithUser } = useChatContext();
   const { friends } = useContactContext();
+  const userContext = React.useContext(UserContext);
+  const currentUserAvatar = userContext?.userInfo?.avatar_url || null;
 
   // View State
   const [activeView, setActiveView] = useState<ViewMode>('messages');
@@ -37,76 +42,14 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ currentUserId, username,
   const [isResizingList, setIsResizingList] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
 
-  // Sync and System Message Fetch
+  // Sync initialization
+  const { loadConversations, conversations } = useChat(parseInt(currentUserId, 10));
+
   React.useEffect(() => {
-    const initData = async () => {
-      try {
-        const { chatApi } = await import('../../api/chat');
-        // 1. Call Sync to get conversations and pending request counts
-        const syncData = await chatApi.syncConversations();
-        console.log('Login Sync Data:', syncData);
-
-        const pendingCount = syncData.pending_friend_requests || 0;
-
-        // 2. If there are pending requests, recursively fetch from system history (conversation_id: 10000)
-        if (pendingCount > 0) {
-          let fetchedCount = 0;
-          let currentCursor: number | undefined = undefined;
-          const friendRequests: any[] = [];
-
-          while (fetchedCount < pendingCount) {
-            // TODO: The conversation_id logic here is currently incorrect and will be fixed later
-            const historyBatch = await chatApi.getMessageHistory({
-              conversation_id: 10000,
-              limit: 50,
-              start_msg_id: currentCursor
-            });
-
-            if (historyBatch.length === 0) break; // no more data
-
-            historyBatch.forEach(msg => {
-              // 拦截好友申请消息 (sender_id === -1)
-              if (msg.sender_id === -1) {
-                // Convert to common NewChatMessage format
-                const formattedMsg = {
-                  type: 'NEW_CHAT_MESSAGE',
-                  data: {
-                    conversation_id: 10000,
-                    msg_id: msg.msg_id,
-                    sender_id: msg.sender_id,
-                    msg_type: msg.msg_type,
-                    content: msg.msg_content,
-                    create_time: msg.create_time,
-                    quote_message_id: msg.quote_msg_id
-                  }
-                };
-                friendRequests.push(formattedMsg);
-                fetchedCount++;
-              }
-            });
-
-            currentCursor = historyBatch[historyBatch.length - 1].msg_id;
-          }
-
-          if (friendRequests.length > 0) {
-            const cachedRaw = localStorage.getItem('cached_friend_requests');
-            let cached = cachedRaw ? JSON.parse(cachedRaw) : [];
-            // Merge and deduplicate
-            friendRequests.forEach(newReq => {
-              if (!cached.find((r: any) => r.data.msg_id === newReq.data.msg_id)) {
-                cached.push(newReq);
-              }
-            });
-            localStorage.setItem('cached_friend_requests', JSON.stringify(cached));
-            window.dispatchEvent(new Event('storage')); // Notify context to update
-          }
-        }
-      } catch (e) {
-        console.error('Failed to initialize sync and system messages', e);
-      }
-    };
-    initData();
-  }, []);
+    if (currentUserId) {
+      loadConversations();
+    }
+  }, [currentUserId]); // Strict dependency to prevent infinite fetch loop
 
   // Handle friend removal event
   React.useEffect(() => {
@@ -168,10 +111,27 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ currentUserId, username,
   const activeContactAvatarColor = activeGroup?.avatarColor; // Only groups have fallback color now, friends will use real avatar
   const activeContactAvatarUrl = activeFriend?.avatar_url;
 
-  const handleSendMessage = (contactId: number) => {
-    // In a real app, this might create a new chat or find an existing one
-    // For now, we mock it by switching to Messages view and setting the activeChatId
-    setActiveChatId(contactId);
+  const handleSendMessage = async (contactId: number) => {
+    // Find if we already have a conversation
+    let convId = contactId;
+    try {
+      // Fetch the real direct conversation ID from the backend using the friend's user ID
+      const directConv = await chatApi.getDirectConversation(contactId);
+      if (directConv && directConv.conversation_id) {
+        convId = directConv.conversation_id;
+      }
+    } catch (e) {
+      console.error('Failed to get direct conversation ID for friend', e);
+      // Fallback: try to find it in the sync list
+      const existingConv = conversations.find(
+        (c) => c.type === 'private' && (c.target_id === contactId || c.target_user_id === contactId || c.last_msg_sender_id === contactId) // fallback approximation
+      );
+      if (existingConv) {
+        convId = existingConv.conversation_id;
+      }
+    }
+
+    setActiveChatId(convId);
     setPreviousView(activeView);
     setActiveView('messages');
   };
@@ -241,12 +201,12 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ currentUserId, username,
             ) : (
               <ChatPanel
                 activeChatId={activeChatId}
-                activeChatName={friends.find(f => f.user_id === activeChatId)?.username}
-                activeChatAvatar={friends.find(f => f.user_id === activeChatId)?.avatar_url}
+                activeChatName={`Chat ${activeChatId}`} // Fallback for now if friend isn't mapped
+                activeChatAvatar={null}
                 currentUserId={currentUserId}
+                currentUserAvatar={currentUserAvatar}
                 isConnected={isConnected}
-                messages={messages}
-                sendMessage={sendMessage}
+                sendMessage={sendChatMessage}
               />
             )
           ) : contactViewMode === 'tags' ? (
