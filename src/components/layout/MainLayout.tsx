@@ -7,7 +7,6 @@ import { ContactDetail } from './ContactDetail';
 import { TagManagementPanel } from './TagManagementPanel';
 import { useContactContext } from '../../context/ContactContext';
 import { useChatContext } from '../../context/ChatContext';
-import { useChat } from '../../hooks/useChat';
 import { chatApi } from '../../api/chat';
 import { UserContext } from '../../context/UserContext';
 import { SettingsOverlay } from './SettingsOverlay';
@@ -21,7 +20,7 @@ interface MainLayoutProps {
 }
 
 export const MainLayout: React.FC<MainLayoutProps> = ({ currentUserId, username, onLogout }) => {
-  const { isConnected, messages, sendChatMessage, removeMessagesWithUser } = useChatContext();
+  const { isConnected, messages, sendChatMessage, removeMessagesWithUser, loadConversations, conversations } = useChatContext();
   const { friends } = useContactContext();
   const userContext = React.useContext(UserContext);
   const currentUserAvatar = userContext?.userInfo?.avatar_url || null;
@@ -43,13 +42,11 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ currentUserId, username,
   const [showSettings, setShowSettings] = useState(false);
 
   // Sync initialization
-  const { loadConversations, conversations } = useChat(parseInt(currentUserId, 10));
-
   React.useEffect(() => {
     if (currentUserId) {
       loadConversations();
     }
-  }, [currentUserId]); // Strict dependency to prevent infinite fetch loop
+  }, [currentUserId, loadConversations]); // Strict dependency to prevent infinite fetch loop
 
   // Handle friend removal event
   React.useEffect(() => {
