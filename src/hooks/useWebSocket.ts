@@ -55,6 +55,60 @@ export const useWebSocket = (token: string | null): UseWebSocketReturn => {
   const wsRef = useRef<WebSocket | null>(null);
   const pingIntervalRef = useRef<number | null>(null);
 
+  // Initial load of pending friend requests
+  useEffect(() => {
+    if (!token) return;
+
+    const fetchPendingRequests = async () => {
+      try {
+        const { getPendingFriendRequests } = await import('../api/friend');
+        const rawRequests = await getPendingFriendRequests();
+
+        const mappedRequests = rawRequests.map(msg => {
+          let realSenderId = -1;
+          try {
+            if (msg.msg_type === 'card' || msg.msg_type === 'notify') {
+              const contentObj = JSON.parse(msg.msg_content);
+              realSenderId = contentObj.extra?.sender_id || -1;
+            }
+          } catch (e) {
+            // ignore
+          }
+
+          return {
+            type: 'NEW_CHAT_MESSAGE' as const,
+            data: {
+              conversation_id: -1, // Use -1 or whatever aligns with system UI
+              msg_id: msg.msg_id,
+              sender_id: msg.sender_id,
+              msg_type: msg.msg_type,
+              content: msg.msg_content,
+              create_time: msg.create_time,
+              quote_message_id: msg.quote_msg_id,
+              _applicant_id: realSenderId
+            }
+          };
+        });
+
+        if (mappedRequests.length > 0) {
+          setFriendRequests(prev => {
+            const newReqs = [...prev];
+            mappedRequests.forEach(req => {
+              if (!newReqs.find(r => r.data.msg_id === req.data.msg_id)) {
+                newReqs.push(req);
+              }
+            });
+            return newReqs;
+          });
+        }
+      } catch (e) {
+        console.error("Failed to load pending friend requests", e);
+      }
+    };
+
+    fetchPendingRequests();
+  }, [token]);
+
   // Sync friend requests to localStorage whenever it changes
   useEffect(() => {
     localStorage.setItem('cached_friend_requests', JSON.stringify(friendRequests));

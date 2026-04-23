@@ -35,9 +35,6 @@ export const useChat = (currentUserId: number) => {
   // and we want it immediately available.
   const quotedMessagesMap = useRef<Map<number, HistoryMessageItem | LocalMessage>>(new Map());
 
-  // Track dynamic system conversation ID
-  const systemConvIdRef = useRef<number | null>(null);
-
   // Persist messagesMap to localStorage on change
   // Limit to 50 messages per conversation to avoid QuotaExceeded errors
   useEffect(() => {
@@ -78,96 +75,9 @@ export const useChat = (currentUserId: number) => {
 
       if (!data || !Array.isArray(data.conversations)) return;
 
-      // Find system conversation and cache its id
-      const systemConv = data.conversations.find((c: any) => c.last_msg_sender_id === -1);
-
-      let unreadCount = 0;
-      if (systemConv) {
-        systemConvIdRef.current = systemConv.conversation_id;
-        unreadCount = systemConv.unread_count || 0;
-      }
-
-      // Filter out the system conversation so it doesn't show in the list
-      const userConversations = data.conversations.filter(c => c.conversation_id !== systemConvIdRef.current);
+      // Filter out the system conversation (-1) so it doesn't show in the standard UI lists
+      const userConversations = data.conversations.filter((c: any) => c.last_msg_sender_id !== -1 && c.conversation_id !== -1);
       setConversations(userConversations);
-
-      // Fallback: If there are unread friend requests based on the sync data summary,
-      // but the system conversation wasn't found or unread_count was missing, we use pending_friend_requests
-      const pendingCount = Math.max(unreadCount, data.pending_friend_requests || 0);
-
-      // Recursively fetch system history if needed and systemConvId is known
-      if (systemConvIdRef.current !== null && pendingCount > 0) {
-        let fetchedCount = 0;
-        let currentCursor: number | undefined = undefined;
-        const friendRequests: any[] = [];
-
-        // Implement a safety cap to prevent an infinite loop in case of bad backend data
-        let safetyCap = 10; // Max 10 pagination calls
-        while (fetchedCount < pendingCount && safetyCap > 0) {
-          safetyCap--;
-          let historyBatch: any[] = [];
-          try {
-            historyBatch = await chatApi.getMessageHistory({
-              conversation_id: systemConvIdRef.current,
-              limit: 50,
-              start_msg_id: currentCursor
-            });
-            // safely unwrap standard wrapper if needed
-            historyBatch = Array.isArray(historyBatch) ? historyBatch : ((historyBatch as any).data || []);
-          } catch (e) {
-            console.error('Failed to fetch system history batch', e);
-            break; // Stop recursive fetching on error to prevent infinite loops
-          }
-
-          if (!Array.isArray(historyBatch) || historyBatch.length === 0) break;
-
-          historyBatch.forEach(msg => {
-            if (msg.sender_id === -1) {
-              // Parse actual sender id from JSON extra payload
-              let realSenderId = -1;
-              try {
-                if (msg.msg_type === 'card' || msg.msg_type === 'notify') {
-                  const contentObj = JSON.parse(msg.msg_content);
-                  realSenderId = contentObj.extra?.sender_id || -1;
-                }
-              } catch (e) {
-                 // ignore
-              }
-
-              const formattedMsg = {
-                type: 'NEW_CHAT_MESSAGE',
-                data: {
-                  conversation_id: systemConvIdRef.current,
-                  msg_id: msg.msg_id,
-                  sender_id: msg.sender_id, // keep it -1 to denote it's a friend request
-                  msg_type: msg.msg_type,
-                  content: msg.msg_content,
-                  create_time: msg.create_time,
-                  quote_message_id: msg.quote_msg_id,
-                  // add an internal field for tracking the applicant
-                  _applicant_id: realSenderId
-                }
-              };
-              friendRequests.push(formattedMsg);
-              fetchedCount++;
-            }
-          });
-
-          currentCursor = historyBatch[historyBatch.length - 1].msg_id;
-        }
-
-        if (friendRequests.length > 0) {
-          const cachedRaw = localStorage.getItem('cached_friend_requests');
-          const cached = cachedRaw ? JSON.parse(cachedRaw) : [];
-          friendRequests.forEach(newReq => {
-            if (!cached.find((r: any) => r.data.msg_id === newReq.data.msg_id)) {
-              cached.push(newReq);
-            }
-          });
-          localStorage.setItem('cached_friend_requests', JSON.stringify(cached));
-          window.dispatchEvent(new Event('storage')); // Notify context
-        }
-      }
 
     } catch (err) {
       console.error('Failed to load conversations', err);
@@ -189,56 +99,6 @@ export const useChat = (currentUserId: number) => {
         throw new Error("Invalid history response format");
       }
 
-      // Intercept friend requests if this is the system conversation
-      if (conversationId === systemConvIdRef.current || history.some(m => m.sender_id === -1)) {
-        const friendRequests: any[] = [];
-        const normalHistory = history.filter(msg => {
-          if (msg.sender_id === -1) {
-            let realSenderId = -1;
-            try {
-              if (msg.msg_type === 'card' || msg.msg_type === 'notify') {
-                const contentObj = JSON.parse(msg.msg_content);
-                realSenderId = contentObj.extra?.sender_id || -1;
-              }
-            } catch (e) {
-               // ignore
-            }
-            const formattedMsg = {
-              type: 'NEW_CHAT_MESSAGE',
-              data: {
-                conversation_id: conversationId,
-                msg_id: msg.msg_id,
-                sender_id: msg.sender_id,
-                msg_type: msg.msg_type,
-                content: msg.msg_content,
-                create_time: msg.create_time,
-                quote_message_id: msg.quote_msg_id,
-                _applicant_id: realSenderId
-              }
-            };
-            friendRequests.push(formattedMsg);
-            return false; // exclude from normal chat history
-          }
-          return true; // keep normal message
-        });
-
-        if (friendRequests.length > 0) {
-          const cachedRaw = localStorage.getItem('cached_friend_requests');
-          const cached = cachedRaw ? JSON.parse(cachedRaw) : [];
-          friendRequests.forEach(newReq => {
-            if (!cached.find((r: any) => r.data.msg_id === newReq.data.msg_id)) {
-              cached.push(newReq);
-            }
-          });
-          localStorage.setItem('cached_friend_requests', JSON.stringify(cached));
-          window.dispatchEvent(new Event('storage')); // Notify context
-        }
-
-        // If it's pure system conversation, just return the filtered history (likely empty if all are requests)
-        if (conversationId === systemConvIdRef.current) {
-          return normalHistory;
-        }
-      }
 
       // Update our quotedMessagesMap reference Map
       history.forEach(msg => {
