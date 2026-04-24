@@ -7,6 +7,8 @@ import { ContactDetail } from './ContactDetail';
 import { TagManagementPanel } from './TagManagementPanel';
 import { useContactContext } from '../../context/ContactContext';
 import { useChatContext } from '../../context/ChatContext';
+import { chatApi } from '../../api/chat';
+import { UserContext } from '../../context/UserContext';
 import { SettingsOverlay } from './SettingsOverlay';
 import { UserProfile } from './UserProfile';
 
@@ -18,8 +20,10 @@ interface MainLayoutProps {
 }
 
 export const MainLayout: React.FC<MainLayoutProps> = ({ currentUserId, username, onLogout }) => {
-  const { isConnected, messages, sendMessage, removeMessagesWithUser } = useChatContext();
+  const { isConnected, sendChatMessage, removeMessagesWithUser, loadConversations, conversations } = useChatContext();
   const { friends } = useContactContext();
+  const userContext = React.useContext(UserContext);
+  const currentUserAvatar = userContext?.userInfo?.avatar_url || null;
 
   // View State
   const [activeView, setActiveView] = useState<ViewMode>('messages');
@@ -36,6 +40,13 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ currentUserId, username,
   const [chatListWidth, setChatListWidth] = useState<number>(300);
   const [isResizingList, setIsResizingList] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+
+  // Sync initialization
+  React.useEffect(() => {
+    if (currentUserId) {
+      loadConversations();
+    }
+  }, [currentUserId, loadConversations]); // Strict dependency to prevent infinite fetch loop
 
   // Handle friend removal event
   React.useEffect(() => {
@@ -97,10 +108,27 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ currentUserId, username,
   const activeContactAvatarColor = activeGroup?.avatarColor; // Only groups have fallback color now, friends will use real avatar
   const activeContactAvatarUrl = activeFriend?.avatar_url;
 
-  const handleSendMessage = (contactId: number) => {
-    // In a real app, this might create a new chat or find an existing one
-    // For now, we mock it by switching to Messages view and setting the activeChatId
-    setActiveChatId(contactId);
+  const handleSendMessage = async (contactId: number) => {
+    // Find if we already have a conversation
+    let convId = contactId;
+    try {
+      // Fetch the real direct conversation ID from the backend using the friend's user ID
+      const directConv = await chatApi.getDirectConversation(contactId);
+      if (directConv && directConv.conversation_id) {
+        convId = directConv.conversation_id;
+      }
+    } catch (e) {
+      console.error('Failed to get direct conversation ID for friend', e);
+      // Fallback: try to find it in the sync list
+      const existingConv = conversations.find(
+        (c) => c.type === 'private' && (c.target_id === contactId || c.target_user_id === contactId || c.last_msg_sender_id === contactId) // fallback approximation
+      );
+      if (existingConv) {
+        convId = existingConv.conversation_id;
+      }
+    }
+
+    setActiveChatId(convId);
     setPreviousView(activeView);
     setActiveView('messages');
   };
@@ -170,12 +198,12 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ currentUserId, username,
             ) : (
               <ChatPanel
                 activeChatId={activeChatId}
-                activeChatName={friends.find(f => f.user_id === activeChatId)?.username}
-                activeChatAvatar={friends.find(f => f.user_id === activeChatId)?.avatar_url}
+                activeChatName={`Chat ${activeChatId}`} // Fallback for now if friend isn't mapped
+                activeChatAvatar={null}
                 currentUserId={currentUserId}
+                currentUserAvatar={currentUserAvatar}
                 isConnected={isConnected}
-                messages={messages}
-                sendMessage={sendMessage}
+                sendMessage={sendChatMessage}
               />
             )
           ) : contactViewMode === 'tags' ? (

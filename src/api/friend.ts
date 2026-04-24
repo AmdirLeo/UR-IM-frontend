@@ -81,6 +81,23 @@ export interface FriendTagListResponse {
   data: string[];
 }
 
+export interface PendingFriendRequestItem {
+  card_type: string;
+  request_id: number;
+  sender_id: number;
+  sender_name: string;
+  sender_avatar: string;
+  reason: string;
+  status: string;
+  create_time: number;
+}
+
+export interface PendingFriendRequestsResponse {
+  code: number;
+  msg: string;
+  data: PendingFriendRequestItem[];
+}
+
 // --- API Functions ---
 
 export const searchUsers = async (keyword: string, page = 1, size = 20) => {
@@ -219,4 +236,10 @@ export const removeFriendFromTag = async (name: string, friend_user_id: number) 
   console.log('Request Payload:', payload);
   const response = await api.post('/friend/tag/remove', payload);
   return response.data;
+};
+
+export const getPendingFriendRequests = async (): Promise<PendingFriendRequestItem[]> => {
+  const response = await api.get('/friend/requests/pending');
+  // Safely unwrap standard data response
+  return response.data?.data || [];
 };

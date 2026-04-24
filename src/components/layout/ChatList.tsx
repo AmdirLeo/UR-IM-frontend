@@ -1,8 +1,11 @@
 import React, { useState, useMemo } from 'react';
-import { Search, Plus, BellOff } from 'lucide-react';
+import { Search, Plus, BellOff, Pin, PinOff, Bell } from 'lucide-react';
 import { useContactContext } from '../../context/ContactContext';
 import { useChatContext } from '../../context/ChatContext';
 import { formatAvatarUrl } from '../../utils/url';
+import { formatChatListTime } from '../../utils/timeFormat';
+import { useContextMenu } from '../common/ContextMenu/useContextMenu';
+import { ContextMenu, ContextMenuItem } from '../common/ContextMenu/ContextMenu';
 
 interface ChatListProps {
   activeChatId: number | null;
@@ -15,62 +18,113 @@ interface ChatItem {
   id: number;
   name: string;
   time: string;
+  timestamp: number;
   unread: number;
   avatarUrl?: string | null;
   avatarColor: string;
   isMuted: boolean;
   lastMessage?: string;
+  pinned?: boolean;
 }
 
 export const ChatList: React.FC<ChatListProps> = ({ activeChatId, onSelectChat, width, currentUserId }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const { friends } = useContactContext();
-  const { messages } = useChatContext();
+  const { conversations, togglePinConversation, toggleMuteConversation } = useChatContext();
 
-  // Generate dynamic chat list from friends and messages
-  const chats: ChatItem[] = useMemo(() => {
-    const chatMap = new Map<number, ChatItem>();
+  const { xPos, yPos, showMenu, setShowMenu, handleContextMenu } = useContextMenu();
+  const [contextMenuChatId, setContextMenuChatId] = useState<number | null>(null);
 
-    // Add friends as potential chats
-    friends.forEach(friend => {
-      chatMap.set(friend.user_id, {
-        id: friend.user_id,
-        name: friend.username,
-        time: 'recent',
-        unread: 0,
-        avatarUrl: friend.avatar_url,
-        avatarColor: 'bg-gray-300',
-        isMuted: false,
-        lastMessage: 'No messages yet'
-      });
-    });
+  const handleRightClick = (e: React.MouseEvent, chatId: number) => {
+    setContextMenuChatId(chatId);
+    handleContextMenu(e);
+  };
 
-    // Update with message data
-    messages.forEach(message => {
-      if (message.type === 'NEW_CHAT_MESSAGE') {
-        const senderId = message.data.sender_id;
-        const receiverId = message.data.conversation_id; // Use conversation_id as receiver for private chats
+  const activeContextMenuChat = useMemo(() => {
+    return conversations.find(c => c.conversation_id === contextMenuChatId);
+  }, [conversations, contextMenuChatId]);
 
-        // Find the chat partner (not current user)
-        const chatPartnerId = senderId === parseInt(currentUserId) ? receiverId : senderId;
+  const menuItems: ContextMenuItem[] = useMemo(() => {
+    if (!activeContextMenuChat) return [];
 
-        if (chatMap.has(chatPartnerId)) {
-          const chat = chatMap.get(chatPartnerId)!;
-          chat.lastMessage = message.data.content || 'New message';
-          chat.time = new Date(message.data.create_time).toLocaleDateString();
-          // Increment unread count if message is not from current user
-          if (senderId !== parseInt(currentUserId) && chatPartnerId !== activeChatId) {
-            chat.unread += 1;
-          } else if (chatPartnerId === activeChatId) {
-             // Optional: immediately clear unread if it is the active chat
-            chat.unread = 0;
+    return [
+      {
+        label: activeContextMenuChat.pinned ? '取消置顶' : '置顶会话',
+        icon: activeContextMenuChat.pinned ? <PinOff className="w-4 h-4" /> : <Pin className="w-4 h-4" />,
+        onClick: () => {
+          if (contextMenuChatId) {
+            togglePinConversation(contextMenuChatId, !activeContextMenuChat.pinned);
+          }
+        }
+      },
+      {
+        label: activeContextMenuChat.muted ? '取消免打扰' : '消息免打扰',
+        icon: activeContextMenuChat.muted ? <Bell className="w-4 h-4" /> : <BellOff className="w-4 h-4" />,
+        onClick: () => {
+          if (contextMenuChatId) {
+            toggleMuteConversation(contextMenuChatId, !activeContextMenuChat.muted);
           }
         }
       }
+    ];
+  }, [activeContextMenuChat, contextMenuChatId, togglePinConversation, toggleMuteConversation]);
+
+  // Generate dynamic chat list from conversations context directly
+  const chats: ChatItem[] = useMemo(() => {
+    const chatItems: ChatItem[] = [];
+
+    conversations.forEach(conv => {
+      let chatName = `Chat ${conv.conversation_id}`;
+      let chatAvatarUrl: string | null = null;
+
+      // 1. Safely extract the target user's ID for single chats
+      const targetId = conv.target_id || conv.target_user_id;
+
+      // 2. Map against the friends list using the Target ID, NEVER the last_msg_sender_id
+      if (targetId && targetId !== parseInt(currentUserId, 10)) {
+        const matchedFriend = friends.find(f => f.user_id === targetId);
+        if (matchedFriend) {
+          chatName = matchedFriend.username;
+          chatAvatarUrl = matchedFriend.avatar_url;
+        }
+      } else if (conv.name) {
+        // Fallback: If it's a group chat or the backend provides the name directly
+        chatName = conv.name;
+        chatAvatarUrl = conv.avatar_url || null;
+      }
+
+      // Safely parse JSON message content if applicable
+      let parsedLastMessage = conv.last_msg_content || 'No messages yet';
+      if (conv.last_msg_content && conv.last_msg_content.startsWith('{')) {
+        try {
+          const parsed = JSON.parse(conv.last_msg_content);
+          parsedLastMessage = parsed.content || parsedLastMessage;
+        } catch (e) {
+          // fallback to raw string
+        }
+      }
+
+      chatItems.push({
+        id: conv.conversation_id, // STRICTLY map to conversation_id
+        name: chatName,
+        avatarUrl: chatAvatarUrl,
+        avatarColor: 'bg-gray-300', // Default or derived color
+        isMuted: conv.muted || false,
+        unread: activeChatId === conv.conversation_id ? 0 : (conv.unread_count || 0),
+        lastMessage: parsedLastMessage,
+        time: conv.last_msg_send_time ? formatChatListTime(conv.last_msg_send_time) : '',
+        timestamp: conv.last_msg_send_time ? new Date(conv.last_msg_send_time).getTime() : 0,
+        pinned: conv.pinned
+      });
     });
 
-    return Array.from(chatMap.values());
-  }, [friends, messages, activeChatId, currentUserId]);
+    // Sort chronologically but respect pinned
+    return chatItems.sort((a, b) => {
+      if (a.pinned && !b.pinned) return -1;
+      if (!a.pinned && b.pinned) return 1;
+      return b.timestamp - a.timestamp;
+    });
+  }, [friends, conversations, activeChatId, currentUserId]);
 
   const filteredChats = chats.filter(chat =>
     chat.name.toLowerCase().includes(searchTerm.toLowerCase())
@@ -106,6 +160,7 @@ export const ChatList: React.FC<ChatListProps> = ({ activeChatId, onSelectChat, 
           <div
             key={chat.id}
             onClick={() => onSelectChat(chat.id)}
+            onContextMenu={(e) => handleRightClick(e, chat.id)}
             className={`flex items-center px-4 py-3 cursor-pointer ${activeChatId === chat.id
               ? 'bg-active'
               : 'hover:bg-hover dark:hover:bg-hover'
@@ -146,6 +201,13 @@ export const ChatList: React.FC<ChatListProps> = ({ activeChatId, onSelectChat, 
           </div>
         ))}
       </div>
+      <ContextMenu
+        x={xPos}
+        y={yPos}
+        show={showMenu}
+        onClose={() => setShowMenu(false)}
+        items={menuItems}
+      />
     </div>
   );
 };

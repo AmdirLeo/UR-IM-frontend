@@ -33,7 +33,6 @@ interface UseWebSocketReturn {
   isConnected: boolean;
   messages: WSMessage[];
   friendRequests: NewChatMessage[];
-  sendMessage: (receiverId: number, content: string, currentUserId: number) => void;
   removeFriendRequest: (msgId: number) => void;
   removeMessagesWithUser: (userId: number) => void;
 }
@@ -55,6 +54,66 @@ export const useWebSocket = (token: string | null): UseWebSocketReturn => {
   });
   const wsRef = useRef<WebSocket | null>(null);
   const pingIntervalRef = useRef<number | null>(null);
+
+  // Initial load of pending friend requests
+  useEffect(() => {
+    if (!token) return;
+
+    const fetchPendingRequests = async () => {
+      try {
+        const { getPendingFriendRequests } = await import('../api/friend');
+        const rawRequests = await getPendingFriendRequests();
+
+        const mappedRequests = rawRequests.map(req => {
+          return {
+            type: 'NEW_CHAT_MESSAGE' as const,
+            data: {
+              conversation_id: -1,
+              msg_id: req.request_id, // Brilliant deduplication key
+              sender_id: -1,
+              msg_type: 'card',
+              content: JSON.stringify({
+                type: 'card',
+                content: `[收到一条好友申请]`,
+                extra: {
+                  card_type: req.card_type,
+                  request_id: req.request_id,
+                  sender_id: req.sender_id,
+                  sender_name: req.sender_name, // Pass the name through so UI doesn't have to fetch it!
+                  sender_avatar: req.sender_avatar,
+                  reason: req.reason,
+                  status: req.status
+                }
+              }),
+              create_time: new Date(req.create_time * 1000).toISOString(),
+              _applicant_id: req.sender_id
+            }
+          };
+        });
+
+        if (mappedRequests.length > 0) {
+          // Replace or deduplicate the cached list
+          setFriendRequests(prev => {
+            const newReqs = [...prev];
+            mappedRequests.forEach(req => {
+              const existingIdx = newReqs.findIndex(r => r.data.msg_id === req.data.msg_id);
+              if (existingIdx >= 0) {
+                // Update existing request status
+                newReqs[existingIdx] = req;
+              } else {
+                newReqs.push(req);
+              }
+            });
+            return newReqs;
+          });
+        }
+      } catch (e) {
+        console.error("Failed to load pending friend requests", e);
+      }
+    };
+
+    fetchPendingRequests();
+  }, [token]);
 
   // Sync friend requests to localStorage whenever it changes
   useEffect(() => {
@@ -97,10 +156,32 @@ export const useWebSocket = (token: string | null): UseWebSocketReturn => {
 
           const innerData = data.data;
 
-          // 1. 拦截卡片类消息 (好友申请)
-          if (innerData?.msg_type === 'card' && innerData?.extra?.card_type === 'friend_apply') {
+          // 1. 拦截好友申请消息 (sender_id === -1)
+          if (innerData?.sender_id === -1) {
             console.log('🔔 成功拦截好友申请！放入专属列表。');
-            setFriendRequests((prev) => [...prev, data]);
+            // Parse actual sender id from JSON extra payload
+            let realSenderId = -1;
+            try {
+              if (innerData.msg_type === 'card' || innerData.msg_type === 'notify') {
+                const contentObj = JSON.parse(innerData.content);
+                realSenderId = contentObj.extra?.sender_id || -1;
+              }
+            } catch (e) {
+               // ignore
+            }
+
+            const enrichedData = {
+              ...data,
+              data: {
+                ...innerData,
+                _applicant_id: realSenderId
+              }
+            };
+
+            setFriendRequests((prev) => {
+              if (prev.find(r => r.data.msg_id === innerData.msg_id)) return prev;
+              return [...prev, enrichedData];
+            });
             return; // 提前退出，别塞进聊天框
           }
 
@@ -144,34 +225,6 @@ export const useWebSocket = (token: string | null): UseWebSocketReturn => {
     };
   }, [token]);
 
-  const sendMessage = useCallback(async (receiverId: number, content: string, currentUserId: number) => {
-    // 乐观更新 UI
-    setMessages((prev) => [...prev, { type: 'chat', sender_id: currentUserId, target_id: receiverId, content } as ChatMessage]);
-
-    try {
-      // 导入 chatApi，改为调用 HTTP 接口发消息 (根据 Sprint 1 后端重构的要求)
-      // 注意：这里需要你实际导入 chatApi, 如果你在同一个文件，或者从 api 导入
-      const { chatApi } = await import('../api/chat');
-      const { v4: uuidv4 } = await import('uuid');
-
-      const reqPayload = {
-        conversation_id: receiverId, // 这里复用 receiverId 作为 conversation_id，实际应用中可能需要查找
-        local_id: uuidv4(),
-        message_content: content,
-        msg_type: "text" as const,
-      };
-
-      await chatApi.sendMessage(reqPayload);
-
-      // 注意：发送成功后，如果后端不通过 WS 将自己的消息回推给你，
-      // 这个乐观更新就可以保留。如果有回推，可以在收到 NEW_CHAT_MESSAGE 后根据 local_id 去重。
-    } catch (err) {
-      console.error('发送消息失败', err);
-      // 可以补充发送失败的 UI 逻辑
-    }
-  }, []);
-
-
   const removeFriendRequest = useCallback((msgId: number) => {
     setFriendRequests((prev) => prev.filter((req) => req.data.msg_id !== msgId));
   }, []);
@@ -187,5 +240,5 @@ export const useWebSocket = (token: string | null): UseWebSocketReturn => {
     }));
   }, []);
 
-  return { isConnected, messages, friendRequests, sendMessage, removeFriendRequest, removeMessagesWithUser };
+  return { isConnected, messages, friendRequests, removeFriendRequest, removeMessagesWithUser };
 };
