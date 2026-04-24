@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { Mail, Lock, User, Hash, AlertCircle } from 'lucide-react';
-import { sendRegisterEmail, registerUser, loginUser } from '../api';
+import { sendRegisterEmail, registerUser, loginUser, sendForgetPasswordEmail, setForgetPassword } from '../api';
 import styles from './Auth.module.css';
 
-type AuthMode = 'login' | 'signup';
+type AuthMode = 'login' | 'signup' | 'forgot_password';
 
 interface AuthProps {
   onLoginSuccess: (userId: string, username?: string) => void;
@@ -27,7 +27,8 @@ export const Auth: React.FC<AuthProps> = ({ onLoginSuccess }) => {
 
   // Initialize countdown from localStorage
   useEffect(() => {
-    const lastSentStr = localStorage.getItem('register_code_last_sent');
+    const key = mode === 'forgot_password' ? 'forgot_pwd_code_last_sent' : 'register_code_last_sent';
+    const lastSentStr = localStorage.getItem(key);
     if (lastSentStr) {
       const lastSent = parseInt(lastSentStr, 10);
       const now = Date.now();
@@ -35,25 +36,28 @@ export const Auth: React.FC<AuthProps> = ({ onLoginSuccess }) => {
       if (diff < 60) {
         setCountdown(60 - diff);
       } else {
-        localStorage.removeItem('register_code_last_sent');
+        localStorage.removeItem(key);
       }
+    } else {
+      setCountdown(0);
     }
-  }, []);
+  }, [mode]);
 
   // Handle countdown interval
   useEffect(() => {
     let timer: ReturnType<typeof setInterval>;
+    const key = mode === 'forgot_password' ? 'forgot_pwd_code_last_sent' : 'register_code_last_sent';
     if (countdown > 0) {
       timer = setInterval(() => {
         setCountdown((prev) => prev - 1);
       }, 1000);
     } else {
-      localStorage.removeItem('register_code_last_sent');
+      localStorage.removeItem(key);
     }
     return () => {
       if (timer) clearInterval(timer);
     };
-  }, [countdown]);
+  }, [countdown, mode]);
 
   const resetMessages = () => {
     setError('');
@@ -76,13 +80,19 @@ export const Auth: React.FC<AuthProps> = ({ onLoginSuccess }) => {
     resetMessages();
     setLoading(true);
     try {
-      const data = await sendRegisterEmail(email);
-      const code = data?.verification_code;
-      setSuccessMsg(code ? `Verification code: ${code}` : 'Verification code sent to your email.');
-
-      // Start countdown
-      setCountdown(60);
-      localStorage.setItem('register_code_last_sent', Date.now().toString());
+      if (mode === 'forgot_password') {
+        const data = await sendForgetPasswordEmail(email);
+        const code = data?.verification_code;
+        setSuccessMsg(code ? `Verification code: ${code}` : 'Verification code sent to your email.');
+        setCountdown(60);
+        localStorage.setItem('forgot_pwd_code_last_sent', Date.now().toString());
+      } else {
+        const data = await sendRegisterEmail(email);
+        const code = data?.verification_code;
+        setSuccessMsg(code ? `Verification code: ${code}` : 'Verification code sent to your email.');
+        setCountdown(60);
+        localStorage.setItem('register_code_last_sent', Date.now().toString());
+      }
     } catch (err: unknown) {
       const e = err as { response?: { data?: { detail?: { msg: string }[]; msg?: string } } };
       setError(e.response?.data?.detail?.[0]?.msg || e.response?.data?.msg || 'Failed to send verification code.');
@@ -113,6 +123,19 @@ export const Auth: React.FC<AuthProps> = ({ onLoginSuccess }) => {
           setPassword('');
           setSuccessMsg(`Please log in with your new ID: ${res.id}`);
         }, 3000);
+      } else if (mode === 'forgot_password') {
+        await setForgetPassword({
+          email,
+          password,
+          verification_code: verificationCode,
+        });
+        setSuccessMsg('Password reset successful!');
+        setTimeout(() => {
+          setMode('login');
+          setId('');
+          setPassword('');
+          setSuccessMsg('Please log in with your new password.');
+        }, 3000);
       } else {
         const res = await loginUser({
           id,
@@ -134,12 +157,14 @@ export const Auth: React.FC<AuthProps> = ({ onLoginSuccess }) => {
     <div className={styles.authCard}>
       <div className={styles.headerContainer}>
         <h2 className={styles.title}>
-          {mode === 'login' ? 'Welcome Back' : 'Create Account'}
+          {mode === 'login' ? 'Welcome Back' : mode === 'signup' ? 'Create Account' : 'Reset Password'}
         </h2>
         <p className={styles.subtitle}>
           {mode === 'login'
             ? 'Sign in with your User ID and password'
-            : 'Register a new account to get your User ID'}
+            : mode === 'signup'
+            ? 'Register a new account to get your User ID'
+            : 'Enter your email to reset your password'}
         </p>
       </div>
 
@@ -158,26 +183,28 @@ export const Auth: React.FC<AuthProps> = ({ onLoginSuccess }) => {
       )}
 
       <form onSubmit={handleSubmit} className={styles.formContainer}>
-        {mode === 'signup' && (
+        {(mode === 'signup' || mode === 'forgot_password') && (
           <>
-            <div>
-              <label className={styles.label}>Username</label>
-              <div className={styles.inputGroup}>
-                <div className={styles.iconContainer}>
-                  <User className={styles.icon} />
+            {mode === 'signup' && (
+              <div>
+                <label className={styles.label}>Username</label>
+                <div className={styles.inputGroup}>
+                  <div className={styles.iconContainer}>
+                    <User className={styles.icon} />
+                  </div>
+                  <input
+                    type="text"
+                    required
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
+                    className={styles.input}
+                    placeholder="johndoe"
+                    minLength={3}
+                    maxLength={20}
+                  />
                 </div>
-                <input
-                  type="text"
-                  required
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  className={styles.input}
-                  placeholder="johndoe"
-                  minLength={3}
-                  maxLength={20}
-                />
               </div>
-            </div>
+            )}
 
             <div>
               <label className={styles.label}>Email</label>
@@ -245,7 +272,7 @@ export const Auth: React.FC<AuthProps> = ({ onLoginSuccess }) => {
         )}
 
         <div>
-          <label className={styles.label}>Password</label>
+          <label className={styles.label}>{mode === 'forgot_password' ? 'New Password' : 'Password'}</label>
           <div className={styles.inputGroup}>
             <div className={styles.iconContainer}>
               <Lock className={styles.icon} />
@@ -261,6 +288,18 @@ export const Auth: React.FC<AuthProps> = ({ onLoginSuccess }) => {
               maxLength={50}
             />
           </div>
+          {mode === 'login' && (
+            <button
+              type="button"
+              className={styles.forgotPasswordLink}
+              onClick={() => {
+                setMode('forgot_password');
+                resetMessages();
+              }}
+            >
+              Forgot password?
+            </button>
+          )}
         </div>
 
         <button
@@ -268,7 +307,7 @@ export const Auth: React.FC<AuthProps> = ({ onLoginSuccess }) => {
           disabled={loading}
           className={styles.submitBtn}
         >
-          {loading ? 'Processing...' : mode === 'login' ? 'Sign In' : 'Sign Up'}
+          {loading ? 'Processing...' : mode === 'login' ? 'Sign In' : mode === 'signup' ? 'Sign Up' : 'Reset Password'}
         </button>
       </form>
 
@@ -282,7 +321,7 @@ export const Auth: React.FC<AuthProps> = ({ onLoginSuccess }) => {
         >
           {mode === 'login'
             ? "Don't have an account? Sign up"
-            : 'Already have an account? Sign in'}
+            : 'Back to sign in'}
         </button>
       </div>
     </div>
