@@ -6,6 +6,7 @@ import { useContextMenu } from '../common/ContextMenu/useContextMenu';
 import { ContextMenu, ContextMenuItem } from '../common/ContextMenu/ContextMenu';
 import { LocalMessage } from '../../hooks/useChat';
 import { UserInfoModal } from './UserInfoModal';
+import { formatMessageBubbleTime, shouldShowTimeBubble } from '../../utils/timeFormat';
 
 interface ChatPanelProps {
   activeChatId: number;
@@ -25,7 +26,7 @@ export const ChatPanel: React.FC<ChatPanelProps & { activeChatName?: string; act
   isConnected,
   sendMessage
 }) => {
-  const { messagesMap, loadMessageHistory, markAsRead, conversations, deleteChatMessage } = useChatContext();
+  const { messagesMap, loadMessageHistory, markAsRead, conversations, deleteChatMessage, quotedMessagesMap } = useChatContext();
   const [inputText, setInputText] = useState('');
   const [quotingMessage, setQuotingMessage] = useState<LocalMessage | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -358,6 +359,17 @@ export const ChatPanel: React.FC<ChatPanelProps & { activeChatName?: string; act
           </div>
         ) : (
           activeMessages.map((msg, idx) => {
+            const prevMsg = activeMessages[idx - 1];
+
+            // Ensure we use the server_time (create_time) or fallback to local generation time
+            // The prompt says "msg.create_time || msg.timestamp" but useChat defines `create_time`.
+            // Let's use `create_time` or fallback to `msg_id` if it's derived from timestamp, or local generation time.
+            // Ensure we use the server_time (create_time) or fallback to local generation time
+            const currTime = msg.create_time || new Date().toISOString();
+            const prevTime = prevMsg ? (prevMsg.create_time || new Date().toISOString()) : undefined;
+
+            const showTime = shouldShowTimeBubble(prevTime, currTime);
+
             // The 25th element from the end of the loaded chunk acts as the infinite scroll trigger.
             // But since older messages are at index 0, we can just observe index ~19 (or 0 if array < 25)
             // Wait, we prepend older messages. If array length > 25, observe index 19. Otherwise index 0.
@@ -378,7 +390,16 @@ export const ChatPanel: React.FC<ChatPanelProps & { activeChatName?: string; act
             }
 
             return (
-              <div key={idx} ref={isThresholdNode ? observerTarget : null} className={`flex ${isMe ? 'justify-end' : 'justify-start'} mb-4 ${msg.isFailed ? 'opacity-50' : ''}`}>
+              <React.Fragment key={msg.msg_id || msg.local_id || idx}>
+                {showTime && (
+                  <div className="flex justify-center my-4">
+                    <span className="text-xs text-gray-400 bg-gray-100 px-2 py-1 rounded-md">
+                      {formatMessageBubbleTime(currTime)}
+                    </span>
+                  </div>
+                )}
+
+                <div ref={isThresholdNode ? observerTarget : null} className={`flex ${isMe ? 'justify-end' : 'justify-start'} mb-4 ${msg.isFailed ? 'opacity-50' : ''}`}>
                 {!isMe && (
                   <div className="flex flex-col items-center mr-3">
                     <span className="text-[10px] text-secondary mb-1 whitespace-nowrap overflow-hidden text-ellipsis max-w-[60px]">{activeChatName || msg.sender_id}</span>
@@ -408,14 +429,50 @@ export const ChatPanel: React.FC<ChatPanelProps & { activeChatName?: string; act
                     }`} />
 
                   {msg.quote_msg_id && (
-                    <div className="bg-primary/10 border-l-2 border-primary/30 pl-2 py-1 mb-2 text-xs text-secondary opacity-70">
-                      回复: 消息被引用
+                    <div
+                      className="bg-primary/10 border-l-2 border-primary/30 pl-2 py-1 mb-2 text-xs text-secondary opacity-70 cursor-pointer hover:opacity-100 transition-opacity"
+                      onClick={() => {
+                        const targetEl = document.getElementById(`msg-${msg.quote_msg_id}`);
+                        if (targetEl) {
+                          targetEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                          // Add a brief highlight effect
+                          targetEl.style.transition = 'background-color 0.5s';
+                          targetEl.style.backgroundColor = 'var(--bg-secondary)';
+                          setTimeout(() => {
+                            targetEl.style.backgroundColor = '';
+                          }, 1500);
+                        }
+                      }}
+                    >
+                      回复: {(() => {
+                        const quotedMsg = quotedMessagesMap.get(msg.quote_msg_id!);
+                        if (!quotedMsg) return 'not in local storage';
+
+                        let qContent = quotedMsg.msg_content || '';
+                        if (qContent.startsWith('{')) {
+                          try {
+                            const parsed = JSON.parse(qContent);
+                            qContent = parsed.content || qContent;
+                          } catch (e) {
+                            // Ignored intentionally
+                          }
+                        }
+                        return `${quotedMsg.sender_id === Number(currentUserId) ? '我' : quotedMsg.sender_id}: ${qContent}`;
+                      })()}
                     </div>
                   )}
 
                   <p className="text-primary text-base leading-relaxed whitespace-pre-wrap word-break">
                     {parsedContent}
                   </p>
+
+                  {(msg.quote_num ?? 0) > 0 && (
+                    <div className="mt-1 text-[10px] text-secondary opacity-80 flex items-center">
+                      <MessageSquareQuote className="w-3 h-3 mr-1" />
+                      被引用 {msg.quote_num} 次
+                    </div>
+                  )}
+
                   {msg.isSending && <span className="absolute bottom-[-15px] right-0 text-[10px] text-tertiary">Sending...</span>}
                   {msg.isFailed && <span className="absolute bottom-[-15px] right-0 text-[10px] text-danger">Failed</span>}
                 </div>
@@ -429,7 +486,8 @@ export const ChatPanel: React.FC<ChatPanelProps & { activeChatName?: string; act
                     )}
                   </div>
                 )}
-              </div>
+                </div>
+              </React.Fragment>
             );
           })
         )}

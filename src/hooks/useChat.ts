@@ -76,7 +76,13 @@ export const useChat = (currentUserId: number) => {
       if (!data || !Array.isArray(data.conversations)) return;
 
       // Filter out the system conversation (-1) so it doesn't show in the standard UI lists
-      const userConversations = data.conversations.filter((c: any) => c.last_msg_sender_id !== -1 && c.conversation_id !== -1);
+      const userConversations = data.conversations
+        .filter((c: any) => c.last_msg_sender_id !== -1 && c.conversation_id !== -1)
+        .map((c: any) => ({
+          ...c,
+          pinned: c.is_pinned ?? c.pinned,
+          muted: c.is_muted ?? c.muted
+        }));
       setConversations(userConversations);
 
     } catch (err) {
@@ -215,6 +221,26 @@ export const useChat = (currentUserId: number) => {
         optimisticMessage.msg_id = msg_id;
         quotedMessagesMap.current.set(msg_id, { ...optimisticMessage, msg_id, create_time: server_time, isSending: false, isFailed: false } as LocalMessage);
 
+        // Increment quote_num for the quoted message if there is one
+        if (quoteMsgId) {
+          const quotedMsg = quotedMessagesMap.current.get(quoteMsgId);
+          if (quotedMsg) {
+            quotedMsg.quote_num = (quotedMsg.quote_num || 0) + 1;
+          }
+
+          setMessagesMap(prev => {
+            const conversationMessages = prev[conversationId] || [];
+            return {
+              ...prev,
+              [conversationId]: conversationMessages.map(msg =>
+                msg.msg_id === quoteMsgId
+                  ? { ...msg, quote_num: (msg.quote_num || 0) + 1 }
+                  : msg
+              )
+            };
+          });
+        }
+
         // If conversation is new and not in our array, sync it from backend
         setConversations(prev => {
           if (!prev.find(c => c.conversation_id === conversationId)) {
@@ -328,9 +354,24 @@ export const useChat = (currentUserId: number) => {
       if (existing.find(m => m.msg_id === newMsg.msg_id)) {
         return prev;
       }
+
+      // If this incoming message quotes another message, increment the quote_num
+      let updatedExisting = existing;
+      if (newMsg.quote_msg_id) {
+        const quotedMsg = quotedMessagesMap.current.get(newMsg.quote_msg_id);
+        if (quotedMsg) {
+          quotedMsg.quote_num = (quotedMsg.quote_num || 0) + 1;
+        }
+        updatedExisting = existing.map(m =>
+          m.msg_id === newMsg.quote_msg_id
+            ? { ...m, quote_num: (m.quote_num || 0) + 1 }
+            : m
+        );
+      }
+
       return {
         ...prev,
-        [convId]: [...existing, newMsg]
+        [convId]: [...updatedExisting, newMsg]
       };
     });
 

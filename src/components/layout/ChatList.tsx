@@ -3,6 +3,7 @@ import { Search, Plus, BellOff, Pin, PinOff, Bell } from 'lucide-react';
 import { useContactContext } from '../../context/ContactContext';
 import { useChatContext } from '../../context/ChatContext';
 import { formatAvatarUrl } from '../../utils/url';
+import { formatChatListTime } from '../../utils/timeFormat';
 import { useContextMenu } from '../common/ContextMenu/useContextMenu';
 import { ContextMenu, ContextMenuItem } from '../common/ContextMenu/ContextMenu';
 
@@ -111,9 +112,7 @@ export const ChatList: React.FC<ChatListProps> = ({ activeChatId, onSelectChat, 
         isMuted: conv.muted || false,
         unread: activeChatId === conv.conversation_id ? 0 : (conv.unread_count || 0),
         lastMessage: parsedLastMessage,
-        time: conv.last_msg_send_time
-                ? new Date(conv.last_msg_send_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-                : '',
+        time: conv.last_msg_send_time ? formatChatListTime(conv.last_msg_send_time) : '',
         timestamp: conv.last_msg_send_time ? new Date(conv.last_msg_send_time).getTime() : 0,
         pinned: conv.pinned
       });
