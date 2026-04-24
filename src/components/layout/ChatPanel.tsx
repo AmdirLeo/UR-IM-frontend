@@ -136,6 +136,7 @@ export const ChatPanel: React.FC<ChatPanelProps & { activeChatName?: string; act
   const isAtBottomRef = useRef(true);
   const lastActiveChatIdRef = useRef<number | null>(null);
   const lastProcessedMsgIdRef = useRef<number | null>(null);
+  const scrollTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Find current conversation metadata
   const currentConversation = conversations.find(c => c.conversation_id === activeChatId);
@@ -186,6 +187,36 @@ export const ChatPanel: React.FC<ChatPanelProps & { activeChatName?: string; act
     }
   };
 
+  const restoredChatIdRef = useRef<number | null>(null);
+
+  // Handle restoring scroll position without flicker
+  // We use a layout effect so it happens synchronously after DOM mutations
+  React.useLayoutEffect(() => {
+    if (!activeChatId || activeMessages.length === 0) return;
+
+    // Only restore scroll if we haven't already restored it for this chat
+    if (restoredChatIdRef.current === activeChatId) return;
+
+    const restoreScroll = () => {
+      const savedScroll = localStorage.getItem(`chat_scroll_${activeChatId}`);
+      if (savedScroll === 'bottom' || !savedScroll) {
+        messagesEndRef.current?.scrollIntoView({ behavior: 'auto' });
+      } else if (savedScroll && messagesContainerRef.current) {
+        // Only set it if it's different to avoid loops
+        const targetScroll = parseInt(savedScroll, 10);
+        if (messagesContainerRef.current.scrollTop !== targetScroll) {
+            messagesContainerRef.current.scrollTop = targetScroll;
+        }
+      }
+      restoredChatIdRef.current = activeChatId;
+    };
+
+    // If history is not loading, it means messages are ready to be scrolled
+    if (!isLoadingHistory) {
+      restoreScroll();
+    }
+  }, [activeChatId, activeMessages.length, isLoadingHistory]);
+
   // Initial Load History (Triggered by Conversation Change)
   useEffect(() => {
     if (!activeChatId) return;
@@ -196,34 +227,21 @@ export const ChatPanel: React.FC<ChatPanelProps & { activeChatName?: string; act
       loadMessageHistory(activeChatId, undefined, 30).then((data) => {
         setHasMoreHistory(data.length === 30);
         setIsLoadingHistory(false);
-        setTimeout(() => {
-           messagesEndRef.current?.scrollIntoView({ behavior: 'auto' });
-        }, 100);
       }).catch((e) => {
         console.error("Failed to load history:", e);
         setIsLoadingHistory(false);
       });
-    } else {
-      // We already have messages, so just scroll to bottom if needed
-      setTimeout(() => {
-         messagesEndRef.current?.scrollIntoView({ behavior: 'auto' });
-      }, 100);
     }
   }, [activeChatId, loadMessageHistory, messagesMap]); // Only run when chat ID changes
 
   // Scroll down smoothly on new messages if at bottom
   useEffect(() => {
-    const isAtBottom = messagesContainerRef.current
-      ? messagesContainerRef.current.scrollHeight - messagesContainerRef.current.scrollTop - messagesContainerRef.current.clientHeight < 100
-      : false;
-
-    // Update our ref whenever activeMessages changes and we run this logic
-    isAtBottomRef.current = isAtBottom;
-
-    if (isAtBottom) {
+    // Only smooth scroll if we are staying in the SAME chat and a NEW message arrives
+    // We check lastActiveChatIdRef to avoid scrolling on chat switch
+    if (activeChatId === lastActiveChatIdRef.current && isAtBottomRef.current) {
       messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }
-  }, [activeMessages]);
+  }, [activeMessages, activeChatId]);
 
   // Handle incoming messages and read acks
   useEffect(() => {
@@ -334,8 +352,24 @@ export const ChatPanel: React.FC<ChatPanelProps & { activeChatName?: string; act
         onScroll={() => {
           if (!messagesContainerRef.current) return;
           const { scrollTop, scrollHeight, clientHeight } = messagesContainerRef.current;
+
           const isAtBottom = scrollHeight - scrollTop - clientHeight < 100;
           isAtBottomRef.current = isAtBottom;
+
+          // Save scroll position for this chat on scroll, but debounce or throttle it slightly
+          if (activeChatId) {
+            if (scrollTimeoutRef.current) {
+              clearTimeout(scrollTimeoutRef.current);
+            }
+            scrollTimeoutRef.current = setTimeout(() => {
+              if (!messagesContainerRef.current) return;
+              if (isAtBottomRef.current) { // Use ref to get the latest value
+                localStorage.setItem(`chat_scroll_${activeChatId}`, 'bottom');
+              } else {
+                localStorage.setItem(`chat_scroll_${activeChatId}`, messagesContainerRef.current.scrollTop.toString());
+              }
+            }, 100);
+          }
 
           if (isAtBottom && floatingUnreadCount > 0) {
             setFloatingUnreadCount(0);
