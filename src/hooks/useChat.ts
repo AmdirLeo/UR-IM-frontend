@@ -147,9 +147,10 @@ export const useChat = (currentUserId: number) => {
     conversationId: number,
     content: string,
     type: "text" | "image" | "card" | "notify" = "text",
-    quoteMsgId?: number
+    quoteMsgId?: number,
+    existingLocalId?: string
   ) => {
-    const localId = uuidv4();
+    const localId = existingLocalId || uuidv4();
     const nowIso = new Date().toISOString();
 
     const optimisticMessage: LocalMessage = {
@@ -158,30 +159,21 @@ export const useChat = (currentUserId: number) => {
       msg_content: content,
       create_time: nowIso,
       sender_id: currentUserId,
-      isSending: true,
+      isSending: false,
       isFailed: false,
       quote_msg_id: quoteMsgId,
     };
 
-    // Optimistic UI update
-    setMessagesMap(prev => ({
-      ...prev,
-      [conversationId]: [...(prev[conversationId] || []), optimisticMessage]
-    }));
-
-    // Optimistic Conversation Update
-    setConversations(prev => prev.map(conv => {
-      if (conv.conversation_id === conversationId) {
+    // If retrying, remove the old failed message from the UI while we retry
+    if (existingLocalId) {
+      setMessagesMap(prev => {
+        const existing = prev[conversationId] || [];
         return {
-          ...conv,
-          last_msg_content: content,
-          last_msg_send_time: nowIso,
-          last_msg_sender_id: currentUserId,
-          last_msg_type: type
+          ...prev,
+          [conversationId]: existing.filter(msg => msg.local_id !== existingLocalId)
         };
-      }
-      return conv;
-    }));
+      });
+    }
 
     try {
       const reqPayload: SendMessageRequest = {
@@ -196,32 +188,47 @@ export const useChat = (currentUserId: number) => {
 
       // Support both 0 and 200 as valid backend success codes
       if ((res.code === 0 || res.code === 200) && res.data) {
-        // Success: Update the local message with the real msg_id and server_time
+        // Success: Add the message to UI with real msg_id and server_time
         const { msg_id, server_time } = res.data;
+        const finalMessage = { ...optimisticMessage, msg_id, create_time: server_time };
 
         setMessagesMap(prev => {
           const conversationMessages = prev[conversationId] || [];
+          // If WebSocket already pushed this message, don't duplicate
+          if (conversationMessages.some(m => m.msg_id === msg_id)) {
+             return prev;
+          }
           return {
             ...prev,
-            [conversationId]: conversationMessages.map(msg =>
-              msg.local_id === localId
-                ? { ...msg, msg_id, create_time: server_time, isSending: false, isFailed: false }
-                : msg
-            )
+            [conversationId]: [...conversationMessages, finalMessage]
           };
         });
 
         // Add to our reference map so others can quote it
-        optimisticMessage.msg_id = msg_id;
-        quotedMessagesMap.current.set(msg_id, { ...optimisticMessage, msg_id, create_time: server_time, isSending: false, isFailed: false } as LocalMessage);
+        quotedMessagesMap.current.set(msg_id, finalMessage as LocalMessage);
 
-        // If conversation is new and not in our array, sync it from backend
         setConversations(prev => {
-          if (!prev.find(c => c.conversation_id === conversationId)) {
+          let updated = false;
+          const newConvs = prev.map(conv => {
+            if (conv.conversation_id === conversationId) {
+              updated = true;
+              return {
+                ...conv,
+                last_msg_content: content,
+                last_msg_send_time: server_time,
+                last_msg_sender_id: currentUserId,
+                last_msg_type: type
+              };
+            }
+            return conv;
+          });
+
+          if (!updated) {
             // It's a brand new conversation, asynchronously load to fetch full metadata
             loadConversations();
+            return prev;
           }
-          return prev;
+          return newConvs;
         });
 
       } else {
@@ -229,14 +236,12 @@ export const useChat = (currentUserId: number) => {
       }
     } catch (err) {
       console.error('Send message failed', err);
-      // Mark as failed
+      // Mark as failed and append it so the user can retry
       setMessagesMap(prev => {
         const conversationMessages = prev[conversationId] || [];
         return {
           ...prev,
-          [conversationId]: conversationMessages.map(msg =>
-            msg.local_id === localId ? { ...msg, isSending: false, isFailed: true } : msg
-          )
+          [conversationId]: [...conversationMessages, { ...optimisticMessage, isFailed: true }]
         };
       });
     }
@@ -273,13 +278,18 @@ export const useChat = (currentUserId: number) => {
 
     setMessagesMap(prev => {
       const existing = prev[convId] || [];
-      // Prevent duplicates if already pushed optimistically or by history
-      // Note: The optimistic phase updates local_id with the real msg_id.
-      // Thus, when the WS echoes the same message, m.msg_id === newMsg.msg_id will match
-      // and silently drop the WS echo, perfectly keeping the existing state.
+      // Prevent duplicates (e.g. pushed by history or API response already)
       if (existing.find(m => m.msg_id === newMsg.msg_id)) {
         return prev;
       }
+
+      // Special case: if we have a failed message with the identical content, and the WS pushes
+      // the message back (maybe it actually succeeded on the server but our client timed out),
+      // we might want to clean up the failed message, though usually failed messages don't exist
+      // on the server. For now, we simply append the incoming WS message.
+
+      // If we had an optimistic UI strategy, we would deduplicate pending messages here,
+      // but since we removed it, we just append any new messages not already in the list.
       return {
         ...prev,
         [convId]: [...existing, newMsg]
