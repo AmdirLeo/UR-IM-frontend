@@ -1,13 +1,17 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { MoreHorizontal, User } from 'lucide-react';
 import { useChatContext } from '../../context/ChatContext';
-import { ChevronsDown, RefreshCw } from 'lucide-react';
+import { ChevronsDown, ClipboardPaste, MessageSquareQuote, Trash2, X } from 'lucide-react';
+import { useContextMenu } from '../common/ContextMenu/useContextMenu';
+import { ContextMenu, ContextMenuItem } from '../common/ContextMenu/ContextMenu';
+import { LocalMessage } from '../../hooks/useChat';
+import { UserInfoModal } from './UserInfoModal';
 
 interface ChatPanelProps {
   activeChatId: number;
   currentUserId: string;
   isConnected: boolean;
-  sendMessage: (conversationId: number, content: string, type?: "text" | "image" | "card" | "notify", quoteMsgId?: number, existingLocalId?: string) => void;
+  sendMessage: (conversationId: number, content: string, type?: "text" | "image" | "card" | "notify", quoteMsgId?: number) => void;
 }
 
 import { formatAvatarUrl } from '../../utils/url';
@@ -21,10 +25,105 @@ export const ChatPanel: React.FC<ChatPanelProps & { activeChatName?: string; act
   isConnected,
   sendMessage
 }) => {
-  const { messagesMap, loadMessageHistory, markAsRead, conversations } = useChatContext();
+  const { messagesMap, loadMessageHistory, markAsRead, conversations, deleteChatMessage } = useChatContext();
   const [inputText, setInputText] = useState('');
+  const [quotingMessage, setQuotingMessage] = useState<LocalMessage | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const { xPos: inputXPos, yPos: inputYPos, showMenu: showInputMenu, setShowMenu: setShowInputMenu, handleContextMenu: handleInputContextMenu } = useContextMenu();
+  const { xPos: msgXPos, yPos: msgYPos, showMenu: showMsgMenu, setShowMenu: setShowMsgMenu, handleContextMenu: handleMsgContextMenu } = useContextMenu();
+
+  const [contextMenuMsgId, setContextMenuMsgId] = useState<number | null>(null);
+
+  // Avatar interaction state
+  const [userInfoModalId, setUserInfoModalId] = useState<number | null>(null);
+
+  // Get active messages from the context map
+  const activeMessagesRaw = messagesMap[activeChatId];
+  const activeMessages = React.useMemo(() => activeMessagesRaw || [], [activeMessagesRaw]);
+
+  const handleMsgRightClick = (e: React.MouseEvent, msg: LocalMessage) => {
+    if (msg.msg_id) {
+      setContextMenuMsgId(msg.msg_id);
+      handleMsgContextMenu(e);
+    }
+  };
+
+  const activeContextMenuMsg = React.useMemo(() => {
+    return activeMessages.find(m => m.msg_id === contextMenuMsgId);
+  }, [activeMessages, contextMenuMsgId]);
+
+  const msgMenuItems: ContextMenuItem[] = React.useMemo(() => {
+    if (!activeContextMenuMsg) return [];
+
+    const isMe = activeContextMenuMsg.sender_id?.toString() === currentUserId;
+    const items: ContextMenuItem[] = [
+      {
+        label: '引用',
+        icon: <MessageSquareQuote className="w-4 h-4" />,
+        onClick: () => setQuotingMessage(activeContextMenuMsg)
+      }
+    ];
+
+    if (isMe) {
+      items.push({
+        label: '删除',
+        icon: <Trash2 className="w-4 h-4" />,
+        danger: true,
+        onClick: () => {
+          if (contextMenuMsgId) {
+            deleteChatMessage(activeChatId, contextMenuMsgId);
+          }
+        }
+      });
+    }
+
+    return items;
+  }, [activeContextMenuMsg, currentUserId, contextMenuMsgId, deleteChatMessage, activeChatId]);
+
+
+  const handleAvatarClick = (userId: number) => {
+    if (userId !== -1) {
+      setUserInfoModalId(userId);
+    }
+  };
+
+  const handlePasteContextMenuClick = async () => {
+    try {
+      const text = await navigator.clipboard.readText();
+      if (text) {
+        // Insert text at cursor position
+        if (textareaRef.current) {
+          const start = textareaRef.current.selectionStart;
+          const end = textareaRef.current.selectionEnd;
+          const newText = inputText.substring(0, start) + text + inputText.substring(end);
+          setInputText(newText);
+
+          // Reset cursor position after insertion
+          setTimeout(() => {
+            if (textareaRef.current) {
+              textareaRef.current.selectionStart = textareaRef.current.selectionEnd = start + text.length;
+              textareaRef.current.focus();
+            }
+          }, 0);
+        } else {
+          setInputText(prev => prev + text);
+        }
+      }
+    } catch (err) {
+      console.error('Failed to read clipboard contents: ', err);
+    }
+  };
+
+  const inputMenuItems: ContextMenuItem[] = [
+    {
+      label: 'Paste',
+      icon: <ClipboardPaste className="w-4 h-4" />,
+      onClick: handlePasteContextMenuClick
+    }
+  ];
 
   const [inputHeight, setInputHeight] = useState(120);
   const [isResizingVertical, setIsResizingVertical] = useState(false);
@@ -36,9 +135,6 @@ export const ChatPanel: React.FC<ChatPanelProps & { activeChatName?: string; act
   const isAtBottomRef = useRef(true);
   const lastActiveChatIdRef = useRef<number | null>(null);
   const lastProcessedMsgIdRef = useRef<number | null>(null);
-
-  // Get active messages from the context map
-  const activeMessages = messagesMap[activeChatId] || [];
 
   // Find current conversation metadata
   const currentConversation = conversations.find(c => c.conversation_id === activeChatId);
@@ -77,8 +173,9 @@ export const ChatPanel: React.FC<ChatPanelProps & { activeChatName?: string; act
   const handleSend = () => {
     if (!inputText.trim() || !isConnected) return;
     // activeChatId is now strictly conversation_id
-    sendMessage(activeChatId, inputText, "text");
+    sendMessage(activeChatId, inputText, "text", quotingMessage?.msg_id);
     setInputText('');
+    setQuotingMessage(null);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -111,7 +208,7 @@ export const ChatPanel: React.FC<ChatPanelProps & { activeChatName?: string; act
          messagesEndRef.current?.scrollIntoView({ behavior: 'auto' });
       }, 100);
     }
-  }, [activeChatId, loadMessageHistory]); // Only run when chat ID changes
+  }, [activeChatId, loadMessageHistory, messagesMap]); // Only run when chat ID changes
 
   // Scroll down smoothly on new messages if at bottom
   useEffect(() => {
@@ -285,7 +382,10 @@ export const ChatPanel: React.FC<ChatPanelProps & { activeChatName?: string; act
                 {!isMe && (
                   <div className="flex flex-col items-center mr-3">
                     <span className="text-[10px] text-secondary mb-1 whitespace-nowrap overflow-hidden text-ellipsis max-w-[60px]">{activeChatName || msg.sender_id}</span>
-                    <div className="w-9 h-9 bg-gray-300 rounded flex-shrink-0 flex items-center justify-center overflow-hidden">
+                    <div
+                      className="w-9 h-9 bg-gray-300 rounded flex-shrink-0 flex items-center justify-center overflow-hidden cursor-pointer hover:opacity-90 transition-opacity"
+                      onClick={() => handleAvatarClick(msg.sender_id)}
+                    >
                       {msg.sender_id === -1 ? (
                          <img src="https://api.dicebear.com/7.x/bottts/svg?seed=System" alt="system" className="w-full h-full object-cover" />
                       ) : activeChatAvatar ? (
@@ -297,27 +397,27 @@ export const ChatPanel: React.FC<ChatPanelProps & { activeChatName?: string; act
                   </div>
                 )}
 
-                <div className={`max-w-[70%] ${isMe ? 'bg-bubble-self text-primary' : 'bg-bubble-other text-primary'} rounded p-2.5 shadow-sm border ${isMe ? 'border-primary' : 'border-primary'} relative ${!isMe ? 'mt-4' : ''}`}>
+                <div
+                  onContextMenu={(e) => handleMsgRightClick(e, msg)}
+                  className={`max-w-[70%] ${isMe ? 'bg-bubble-self text-primary' : 'bg-bubble-other text-primary'} rounded p-2.5 shadow-sm border ${isMe ? 'border-primary' : 'border-primary'} relative ${!isMe ? 'mt-4' : ''}`}
+                >
                   {/* Tiny triangle pointer */}
                   <div className={`absolute top-3 w-0 h-0 border-y-[6px] border-y-transparent ${isMe
                     ? 'right-[-6px] border-l-[6px] border-l-[#95EC69] dark:border-l-[#2B2B2B]'
                     : 'left-[-6px] border-r-[6px] border-r-white dark:border-r-[#202020]'
                     }`} />
 
+                  {msg.quote_msg_id && (
+                    <div className="bg-primary/10 border-l-2 border-primary/30 pl-2 py-1 mb-2 text-xs text-secondary opacity-70">
+                      回复: 消息被引用
+                    </div>
+                  )}
+
                   <p className="text-primary text-base leading-relaxed whitespace-pre-wrap word-break">
                     {parsedContent}
                   </p>
-
-                  {/* Status indicators */}
-                  {msg.isFailed && (
-                    <button
-                      onClick={() => sendMessage(activeChatId, msg.msg_content, msg.msg_type as any, msg.quote_msg_id, msg.local_id)}
-                      className="absolute top-1/2 -translate-y-1/2 left-[-28px] p-1 rounded-full bg-white dark:bg-gray-800 shadow hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer transition-colors group"
-                      title="发送失败，点击重发"
-                    >
-                      <RefreshCw className="w-3.5 h-3.5 text-danger group-hover:rotate-180 transition-transform duration-300" />
-                    </button>
-                  )}
+                  {msg.isSending && <span className="absolute bottom-[-15px] right-0 text-[10px] text-tertiary">Sending...</span>}
+                  {msg.isFailed && <span className="absolute bottom-[-15px] right-0 text-[10px] text-danger">Failed</span>}
                 </div>
 
                 {isMe && (
@@ -358,18 +458,57 @@ export const ChatPanel: React.FC<ChatPanelProps & { activeChatName?: string; act
         onMouseDown={() => setIsResizingVertical(true)}
       />
 
+      <ContextMenu
+        x={msgXPos}
+        y={msgYPos}
+        show={showMsgMenu}
+        onClose={() => setShowMsgMenu(false)}
+        items={msgMenuItems}
+      />
+
+
+      <UserInfoModal
+        userId={userInfoModalId!}
+        isOpen={userInfoModalId !== null}
+        onClose={() => setUserInfoModalId(null)}
+      />
+
       {/* Input Area */}
       <div
         style={{ height: `${inputHeight}px` }}
-        className="bg-primary border-t border-primary flex flex-col shrink-0 px-4 pt-3 pb-3 transition-colors"
+        className="bg-primary border-t border-primary flex flex-col shrink-0 px-4 pt-3 pb-3 transition-colors relative"
       >
+        {/* Quote Preview */}
+        {quotingMessage && (
+          <div className="absolute top-[-40px] left-0 right-0 h-[40px] bg-secondary border-t border-primary flex items-center px-4 justify-between shadow-sm">
+            <span className="text-xs text-secondary truncate flex-1">
+              回复 {quotingMessage.sender_id === -1 ? 'System' : (quotingMessage.sender_id?.toString() === currentUserId ? '自己' : activeChatName || quotingMessage.sender_id)}: {quotingMessage.msg_content}
+            </span>
+            <button onClick={() => setQuotingMessage(null)} className="ml-2 p-1 hover:bg-hover rounded-full">
+              <X className="w-4 h-4 text-tertiary" />
+            </button>
+          </div>
+        )}
         {/* Text Area */}
         <textarea
+          ref={textareaRef}
           className="flex-1 bg-transparent border-none outline-none resize-none text-primary text-base"
           placeholder="Type a message..."
           value={inputText}
           onChange={(e) => setInputText(e.target.value)}
           onKeyDown={handleKeyDown}
+          onContextMenu={(e) => {
+             e.preventDefault();
+             handleInputContextMenu(e);
+          }}
+        />
+
+        <ContextMenu
+          x={inputXPos}
+          y={inputYPos}
+          show={showInputMenu}
+          onClose={() => setShowInputMenu(false)}
+          items={inputMenuItems}
         />
 
         {/* Send Button */}

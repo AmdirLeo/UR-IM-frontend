@@ -1,8 +1,10 @@
 import React, { useState, useMemo } from 'react';
-import { Search, Plus, BellOff } from 'lucide-react';
+import { Search, Plus, BellOff, Pin, PinOff, Bell } from 'lucide-react';
 import { useContactContext } from '../../context/ContactContext';
 import { useChatContext } from '../../context/ChatContext';
 import { formatAvatarUrl } from '../../utils/url';
+import { useContextMenu } from '../common/ContextMenu/useContextMenu';
+import { ContextMenu, ContextMenuItem } from '../common/ContextMenu/ContextMenu';
 
 interface ChatListProps {
   activeChatId: number | null;
@@ -21,12 +23,50 @@ interface ChatItem {
   avatarColor: string;
   isMuted: boolean;
   lastMessage?: string;
+  pinned?: boolean;
 }
 
 export const ChatList: React.FC<ChatListProps> = ({ activeChatId, onSelectChat, width, currentUserId }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const { friends } = useContactContext();
-  const { conversations } = useChatContext();
+  const { conversations, togglePinConversation, toggleMuteConversation } = useChatContext();
+
+  const { xPos, yPos, showMenu, setShowMenu, handleContextMenu } = useContextMenu();
+  const [contextMenuChatId, setContextMenuChatId] = useState<number | null>(null);
+
+  const handleRightClick = (e: React.MouseEvent, chatId: number) => {
+    setContextMenuChatId(chatId);
+    handleContextMenu(e);
+  };
+
+  const activeContextMenuChat = useMemo(() => {
+    return conversations.find(c => c.conversation_id === contextMenuChatId);
+  }, [conversations, contextMenuChatId]);
+
+  const menuItems: ContextMenuItem[] = useMemo(() => {
+    if (!activeContextMenuChat) return [];
+
+    return [
+      {
+        label: activeContextMenuChat.pinned ? '取消置顶' : '置顶会话',
+        icon: activeContextMenuChat.pinned ? <PinOff className="w-4 h-4" /> : <Pin className="w-4 h-4" />,
+        onClick: () => {
+          if (contextMenuChatId) {
+            togglePinConversation(contextMenuChatId, !activeContextMenuChat.pinned);
+          }
+        }
+      },
+      {
+        label: activeContextMenuChat.muted ? '取消免打扰' : '消息免打扰',
+        icon: activeContextMenuChat.muted ? <Bell className="w-4 h-4" /> : <BellOff className="w-4 h-4" />,
+        onClick: () => {
+          if (contextMenuChatId) {
+            toggleMuteConversation(contextMenuChatId, !activeContextMenuChat.muted);
+          }
+        }
+      }
+    ];
+  }, [activeContextMenuChat, contextMenuChatId, togglePinConversation, toggleMuteConversation]);
 
   // Generate dynamic chat list from conversations context directly
   const chats: ChatItem[] = useMemo(() => {
@@ -74,12 +114,17 @@ export const ChatList: React.FC<ChatListProps> = ({ activeChatId, onSelectChat, 
         time: conv.last_msg_send_time
                 ? new Date(conv.last_msg_send_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
                 : '',
-        timestamp: conv.last_msg_send_time ? new Date(conv.last_msg_send_time).getTime() : 0
+        timestamp: conv.last_msg_send_time ? new Date(conv.last_msg_send_time).getTime() : 0,
+        pinned: conv.pinned
       });
     });
 
-    // Sort chronologically
-    return chatItems.sort((a, b) => b.timestamp - a.timestamp);
+    // Sort chronologically but respect pinned
+    return chatItems.sort((a, b) => {
+      if (a.pinned && !b.pinned) return -1;
+      if (!a.pinned && b.pinned) return 1;
+      return b.timestamp - a.timestamp;
+    });
   }, [friends, conversations, activeChatId, currentUserId]);
 
   const filteredChats = chats.filter(chat =>
@@ -116,6 +161,7 @@ export const ChatList: React.FC<ChatListProps> = ({ activeChatId, onSelectChat, 
           <div
             key={chat.id}
             onClick={() => onSelectChat(chat.id)}
+            onContextMenu={(e) => handleRightClick(e, chat.id)}
             className={`flex items-center px-4 py-3 cursor-pointer ${activeChatId === chat.id
               ? 'bg-active'
               : 'hover:bg-hover dark:hover:bg-hover'
@@ -156,6 +202,13 @@ export const ChatList: React.FC<ChatListProps> = ({ activeChatId, onSelectChat, 
           </div>
         ))}
       </div>
+      <ContextMenu
+        x={xPos}
+        y={yPos}
+        show={showMenu}
+        onClose={() => setShowMenu(false)}
+        items={menuItems}
+      />
     </div>
   );
 };

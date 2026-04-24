@@ -18,6 +18,9 @@ interface ChatContextType {
   loadMessageHistory: (conversationId: number, startMsgId?: number, limit?: number) => Promise<any[]>;
   sendChatMessage: (conversationId: number, content: string, type?: "text" | "image" | "card" | "notify", quoteMsgId?: number) => Promise<void>;
   markAsRead: (conversationId: number, msgId: number) => Promise<void>;
+  deleteChatMessage: (conversationId: number, msgId: number) => Promise<boolean>;
+  togglePinConversation: (conversationId: number, isPinned: boolean) => Promise<boolean>;
+  toggleMuteConversation: (conversationId: number, isMuted: boolean) => Promise<boolean>;
 }
 
 const ChatContext = createContext<ChatContextType | undefined>(undefined);

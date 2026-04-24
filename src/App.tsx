@@ -22,6 +22,15 @@ function AppContent() {
     } else {
       document.documentElement.classList.remove('dark');
     }
+
+    // Disable default context menu globally
+    const handleContextMenu = (e: MouseEvent) => {
+      e.preventDefault();
+    };
+    document.addEventListener('contextmenu', handleContextMenu);
+    return () => {
+      document.removeEventListener('contextmenu', handleContextMenu);
+    };
   }, []);
 
   const onLoginSuccess = async () => {
