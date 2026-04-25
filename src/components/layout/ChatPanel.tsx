@@ -144,6 +144,7 @@ export const ChatPanel: React.FC<ChatPanelProps & { activeChatName?: string; act
 
   // Find current conversation metadata
   const currentConversation = conversations.find(c => c.conversation_id === activeChatId);
+  const isGroupChat = currentConversation?.type === 'group';
 
   // Resize handler for Chat Input Area
   useEffect(() => {
@@ -357,6 +358,7 @@ export const ChatPanel: React.FC<ChatPanelProps & { activeChatName?: string; act
         conversationId={activeChatId}
         isOpen={isSearchModalOpen}
         onClose={() => setIsSearchModalOpen(false)}
+        isGroupChat={isGroupChat}
       />
 
       {/* Message History Area */}
