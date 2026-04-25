@@ -334,6 +334,66 @@ export const ChatPanel: React.FC<ChatPanelProps & { activeChatName?: string; act
     };
   }, [activeChatId, activeMessages, isLoadingHistory, hasMoreHistory, loadMessageHistory]);
 
+  // ======= 新增：引用消息跳转与历史溯源逻辑 =======
+  const jumpToQuotedMessage = async (targetMsgId: number) => {
+    // 内部高亮动画方法
+    const highlightMessage = (el: HTMLElement) => {
+      el.style.transition = 'background-color 0.5s';
+      el.style.backgroundColor = 'var(--bg-secondary)';
+      setTimeout(() => {
+        el.style.backgroundColor = '';
+      }, 1500);
+    };
+
+    // 1. 尝试在当前 DOM 查找
+    let targetEl = document.getElementById(`msg-${targetMsgId}`);
+
+    if (targetEl) {
+      targetEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      highlightMessage(targetEl);
+    } else {
+      // 2. 找不到，说明在更早的历史记录里，需要递归向上拉取
+      setIsLoadingHistory(true);
+      try {
+        let found = false;
+        // 拿到当前屏幕上最老的一条消息作为初始游标
+        let currentCursor = activeMessages[0]?.msg_id;
+        let currentHasMore = hasMoreHistory;
+
+        // 循环拉取直到找到该 ID 或没有更多历史
+        while (!found && currentHasMore) {
+          // 这里使用 30，与你下方的 observer 加载数量保持一致
+          const olderData = await loadMessageHistory(activeChatId, currentCursor, 30);
+          if (!olderData || olderData.length === 0) {
+            setHasMoreHistory(false);
+            break;
+          }
+
+          // loadMessageHistory 返回的数组最后一条是最老的消息
+          currentCursor = olderData[olderData.length - 1].msg_id;
+          currentHasMore = olderData.length === 30;
+          setHasMoreHistory(currentHasMore);
+
+          found = olderData.some((m: any) => m.msg_id === targetMsgId);
+
+          // ⚠️ 关键点：给 React 状态更新和 DOM 重新渲染留出足够的时间
+          await new Promise(resolve => setTimeout(resolve, 150));
+
+          targetEl = document.getElementById(`msg-${targetMsgId}`);
+          if (targetEl) {
+            targetEl.scrollIntoView({ behavior: 'auto', block: 'center' });
+            highlightMessage(targetEl);
+            found = true;
+          }
+        }
+      } catch (error) {
+        console.error("Jump to message failed:", error);
+      } finally {
+        setIsLoadingHistory(false);
+      }
+    }
+  };
+  
   let quotingPreviewText = quotingMessage?.msg_content || '';
   if (quotingPreviewText.startsWith('{')) {
     try {
@@ -341,7 +401,7 @@ export const ChatPanel: React.FC<ChatPanelProps & { activeChatName?: string; act
       quotingPreviewText = parsed.content || quotingPreviewText;
     } catch (e) {}
   }
-  
+
   return (
     <div className="flex-1 h-full bg-primary flex flex-col min-w-[400px] relative">
       {/* Header */}
@@ -493,22 +553,11 @@ export const ChatPanel: React.FC<ChatPanelProps & { activeChatName?: string; act
                   {msg.quote_msg_id && (
                     <div
                       className="bg-primary/10 border-l-2 border-primary/30 pl-2 py-1 mb-2 text-xs text-secondary opacity-70 cursor-pointer hover:opacity-100 transition-opacity"
-                      onClick={() => {
-                        const targetEl = document.getElementById(`msg-${msg.quote_msg_id}`);
-                        if (targetEl) {
-                          targetEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                          // Add a brief highlight effect
-                          targetEl.style.transition = 'background-color 0.5s';
-                          targetEl.style.backgroundColor = 'var(--bg-secondary)';
-                          setTimeout(() => {
-                            targetEl.style.backgroundColor = '';
-                          }, 1500);
-                        }
-                      }}
+                      onClick={() => jumpToQuotedMessage(msg.quote_msg_id!)}
                     >
                       回复: {(() => {
                         const quotedMsg = quotedMessagesMap.get(msg.quote_msg_id!);
-                        if (!quotedMsg) return 'not in local storage';
+                        if (!quotedMsg) return '原消息不在当前设备或已被删除';
 
                         let qContent = quotedMsg.msg_content || '';
                         if (qContent.startsWith('{')) {
