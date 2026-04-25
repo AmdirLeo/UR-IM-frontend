@@ -1,7 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { MoreHorizontal, User } from 'lucide-react';
+import { MoreHorizontal, User, Search } from 'lucide-react';
 import { useChatContext } from '../../context/ChatContext';
 import { ChevronsDown, ClipboardPaste, MessageSquareQuote, Trash2, X } from 'lucide-react';
+import { MessageSearchModal } from './MessageSearchModal';
 import { useContextMenu } from '../common/ContextMenu/useContextMenu';
 import { ContextMenu, ContextMenuItem } from '../common/ContextMenu/ContextMenu';
 import { LocalMessage } from '../../hooks/useChat';
@@ -40,6 +41,9 @@ export const ChatPanel: React.FC<ChatPanelProps & { activeChatName?: string; act
 
   // Avatar interaction state
   const [userInfoModalId, setUserInfoModalId] = useState<number | null>(null);
+
+  // Search state
+  const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
 
   // Get active messages from the context map
   const activeMessagesRaw = messagesMap[activeChatId];
@@ -341,9 +345,19 @@ export const ChatPanel: React.FC<ChatPanelProps & { activeChatName?: string; act
 
         {/* Window controls (Mock) */}
         <div className="flex items-center space-x-4 text-secondary">
+          <Search
+            className="w-5 h-5 ml-2 hover:text-primary cursor-pointer transition-colors"
+            onClick={() => setIsSearchModalOpen(true)}
+          />
           <MoreHorizontal className="w-5 h-5 ml-2 hover:text-primary cursor-pointer" />
         </div>
       </div>
+
+      <MessageSearchModal
+        conversationId={activeChatId}
+        isOpen={isSearchModalOpen}
+        onClose={() => setIsSearchModalOpen(false)}
+      />
 
       {/* Message History Area */}
       <div
