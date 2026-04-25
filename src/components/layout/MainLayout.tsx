@@ -149,6 +149,30 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ currentUserId, username,
     setContactViewMode('tags');
   };
 
+  // Compute active chat name and avatar based on activeChatId
+  let activeChatName = activeChatId ? `Chat ${activeChatId}` : undefined;
+  let activeChatAvatar: string | null = null;
+
+  if (activeChatId) {
+    const activeConv = conversations.find(c => c.conversation_id === activeChatId);
+    if (activeConv) {
+      const targetId = activeConv.target_id || activeConv.target_user_id;
+      if (activeConv.type === 'private' && targetId && targetId !== parseInt(currentUserId, 10)) {
+        const matchedFriend = friends.find(f => f.user_id === targetId);
+        if (matchedFriend) {
+          activeChatName = matchedFriend.username;
+          activeChatAvatar = matchedFriend.avatar_url;
+        } else if (activeConv.name) {
+          activeChatName = activeConv.name;
+          activeChatAvatar = activeConv.avatar_url || null;
+        }
+      } else if (activeConv.name) {
+        activeChatName = activeConv.name;
+        activeChatAvatar = activeConv.avatar_url || null;
+      }
+    }
+  }
+
   return (
     <div className="flex h-screen w-full bg-primary overflow-hidden font-sans relative">
       {showSettings && <SettingsOverlay onClose={() => setShowSettings(false)} />}
@@ -198,8 +222,8 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ currentUserId, username,
             ) : (
               <ChatPanel
                 activeChatId={activeChatId}
-                activeChatName={`Chat ${activeChatId}`} // Fallback for now if friend isn't mapped
-                activeChatAvatar={null}
+                activeChatName={activeChatName}
+                activeChatAvatar={activeChatAvatar}
                 currentUserId={currentUserId}
                 currentUserAvatar={currentUserAvatar}
                 isConnected={isConnected}
