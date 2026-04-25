@@ -44,6 +44,16 @@ export const registerUser = async (data: RegisterData) => {
   return response.data;
 };
 
+export const sendForgetPasswordEmail = async (email: string) => {
+  const response = await api.post('/user/register/forgetpswdsend', { email });
+  return response.data;
+};
+
+export const setForgetPassword = async (data: Omit<RegisterData, 'username'>) => {
+  const response = await api.post('/user/register/forgetpswdset', data);
+  return response.data;
+};
+
 export const loginUser = async (data: LoginData) => {
   const response = await api.post('/user/login', data);
   return response.data;
