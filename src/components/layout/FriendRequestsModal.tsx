@@ -20,10 +20,21 @@ const FriendRequestItem = ({
   setError: (err: string) => void;
 }) => {
   // 提取基础数据
-  const extra = (req.data.extra ?? {}) as Record<string, unknown>;
+  let extra: Record<string, any> = {};
+  try {
+    const parsedContent = typeof req.data.content === 'string' 
+      ? JSON.parse(req.data.content) 
+      : (req.data.content || {});
+    extra = parsedContent.extra || {};
+  } catch (e) {
+    console.warn("Failed to parse friend request content:", e);
+  }
+
   const msgId = req.data.msg_id;
   const requestId = Number(extra.request_id ?? req.data.msg_id);
-  const senderId = Number(extra.sender_id ?? req.data.sender_id);
+  
+  // 优先用 useWebSocket 里提取的 _applicant_id，其次用 extra 里的，最后兜底
+  const senderId = Number(req.data._applicant_id ?? extra.sender_id ?? req.data.sender_id);
   const rawMessage = (extra.reason as string) || '';
   const message = rawMessage.trim() ? rawMessage : '没有附加信息';
 
