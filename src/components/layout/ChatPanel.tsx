@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { MoreHorizontal, User, Search } from 'lucide-react';
 import { useChatContext } from '../../context/ChatContext';
-import { ChevronsDown, ClipboardPaste, MessageSquareQuote, Trash2, X } from 'lucide-react';
+import { ChevronsDown, ClipboardPaste, MessageSquareQuote, Trash2, X, RefreshCw } from 'lucide-react';
 import { MessageSearchModal } from './MessageSearchModal';
 import { useContextMenu } from '../common/ContextMenu/useContextMenu';
 import { ContextMenu, ContextMenuItem } from '../common/ContextMenu/ContextMenu';
@@ -13,7 +13,7 @@ interface ChatPanelProps {
   activeChatId: number;
   currentUserId: string;
   isConnected: boolean;
-  sendMessage: (conversationId: number, content: string, type?: "text" | "image" | "card" | "notify", quoteMsgId?: number) => void;
+  sendMessage: (conversationId: number, content: string, type?: "text" | "image" | "card" | "notify", quoteMsgId?: number, existingLocalId?: string) => void;
 }
 
 import { formatAvatarUrl } from '../../utils/url';
@@ -522,7 +522,15 @@ export const ChatPanel: React.FC<ChatPanelProps & { activeChatName?: string; act
                   )}
 
                   {msg.isSending && <span className="absolute bottom-[-15px] right-0 text-[10px] text-tertiary">Sending...</span>}
-                  {msg.isFailed && <span className="absolute bottom-[-15px] right-0 text-[10px] text-danger">Failed</span>}
+                  {msg.isFailed && (
+                    <button
+                      onClick={() => sendMessage(activeChatId, msg.msg_content, msg.msg_type as any, msg.quote_msg_id, msg.local_id)}
+                      className="absolute top-1/2 -translate-y-1/2 left-[-28px] p-1 rounded-full bg-white dark:bg-gray-800 shadow hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer transition-colors group"
+                      title="发送失败，点击重发"
+                    >
+                      <RefreshCw className="w-3.5 h-3.5 text-danger group-hover:rotate-180 transition-transform duration-300" />
+                    </button>
+                  )}
                 </div>
 
                 {isMe && (

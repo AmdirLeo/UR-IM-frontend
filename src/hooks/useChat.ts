@@ -153,9 +153,10 @@ export const useChat = (currentUserId: number) => {
     conversationId: number,
     content: string,
     type: "text" | "image" | "card" | "notify" = "text",
-    quoteMsgId?: number
+    quoteMsgId?: number,
+    existingLocalId?: string
   ) => {
-    const localId = uuidv4();
+    const localId = existingLocalId || uuidv4();
     const nowIso = new Date().toISOString();
 
     const optimisticMessage: LocalMessage = {
@@ -164,30 +165,20 @@ export const useChat = (currentUserId: number) => {
       msg_content: content,
       create_time: nowIso,
       sender_id: currentUserId,
-      isSending: true,
+      isSending: false, 
       isFailed: false,
       quote_msg_id: quoteMsgId,
     };
 
-    // Optimistic UI update
-    setMessagesMap(prev => ({
-      ...prev,
-      [conversationId]: [...(prev[conversationId] || []), optimisticMessage]
-    }));
-
-    // Optimistic Conversation Update
-    setConversations(prev => prev.map(conv => {
-      if (conv.conversation_id === conversationId) {
+    if (existingLocalId) {
+      setMessagesMap(prev => {
+        const existing = prev[conversationId] || [];
         return {
-          ...conv,
-          last_msg_content: content,
-          last_msg_send_time: nowIso,
-          last_msg_sender_id: currentUserId,
-          last_msg_type: type
+          ...prev,
+          [conversationId]: existing.filter(msg => msg.local_id !== existingLocalId)
         };
-      }
-      return conv;
-    }));
+      });
+    }
 
     try {
       const reqPayload: SendMessageRequest = {
@@ -200,54 +191,61 @@ export const useChat = (currentUserId: number) => {
 
       const res = await chatApi.sendMessage(reqPayload);
 
-      // Support both 0 and 200 as valid backend success codes
       if ((res.code === 0 || res.code === 200) && res.data) {
-        // Success: Update the local message with the real msg_id and server_time
         const { msg_id, server_time } = res.data;
+        const finalMessage = { ...optimisticMessage, msg_id, create_time: server_time };
 
+        // 4. 发送成功：把真实的消息加到 UI 中
         setMessagesMap(prev => {
           const conversationMessages = prev[conversationId] || [];
+          // 【核心修复】：如果 WebSocket 跑得比 HTTP 快，已经把消息推上来了，就不要重复添加！
+          if (conversationMessages.some(m => m.msg_id === msg_id)) {
+            return prev;
+          }
           return {
             ...prev,
-            [conversationId]: conversationMessages.map(msg =>
-              msg.local_id === localId
-                ? { ...msg, msg_id, create_time: server_time, isSending: false, isFailed: false }
-                : msg
-            )
+            [conversationId]: [...conversationMessages, finalMessage]
           };
         });
 
-        // Add to our reference map so others can quote it
-        optimisticMessage.msg_id = msg_id;
-        quotedMessagesMap.current.set(msg_id, { ...optimisticMessage, msg_id, create_time: server_time, isSending: false, isFailed: false } as LocalMessage);
+        quotedMessagesMap.current.set(msg_id, finalMessage as LocalMessage);
 
-        // Increment quote_num for the quoted message if there is one
         if (quoteMsgId) {
           const quotedMsg = quotedMessagesMap.current.get(quoteMsgId);
           if (quotedMsg) {
             quotedMsg.quote_num = (quotedMsg.quote_num || 0) + 1;
           }
-
           setMessagesMap(prev => {
             const conversationMessages = prev[conversationId] || [];
             return {
               ...prev,
               [conversationId]: conversationMessages.map(msg =>
-                msg.msg_id === quoteMsgId
-                  ? { ...msg, quote_num: (msg.quote_num || 0) + 1 }
-                  : msg
+                msg.msg_id === quoteMsgId ? { ...msg, quote_num: (msg.quote_num || 0) + 1 } : msg
               )
             };
           });
         }
 
-        // If conversation is new and not in our array, sync it from backend
         setConversations(prev => {
-          if (!prev.find(c => c.conversation_id === conversationId)) {
-            // It's a brand new conversation, asynchronously load to fetch full metadata
+          let updated = false;
+          const newConvs = prev.map(conv => {
+            if (conv.conversation_id === conversationId) {
+              updated = true;
+              return {
+                ...conv,
+                last_msg_content: content,
+                last_msg_send_time: server_time,
+                last_msg_sender_id: currentUserId,
+                last_msg_type: type
+              };
+            }
+            return conv;
+          });
+          if (!updated) {
             loadConversations();
+            return prev;
           }
-          return prev;
+          return newConvs;
         });
 
       } else {
@@ -255,19 +253,18 @@ export const useChat = (currentUserId: number) => {
       }
     } catch (err) {
       console.error('Send message failed', err);
-      // Mark as failed
+      // 6. 发送失败：把带有 isFailed 标记的消息塞回列表末尾，供用户点击重试
       setMessagesMap(prev => {
         const conversationMessages = prev[conversationId] || [];
         return {
           ...prev,
-          [conversationId]: conversationMessages.map(msg =>
-            msg.local_id === localId ? { ...msg, isSending: false, isFailed: true } : msg
-          )
+          [conversationId]: [...conversationMessages, { ...optimisticMessage, isFailed: true }]
         };
       });
     }
   }, [currentUserId, loadConversations]);
 
+  
   const markAsRead = useCallback(async (conversationId: number, msgId: number) => {
     try {
       await chatApi.readAck({ conversation_id: conversationId, msg_id: msgId });
