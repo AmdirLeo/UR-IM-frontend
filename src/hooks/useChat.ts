@@ -22,10 +22,10 @@ export const useChat = (currentUserId: number) => {
     processedQuoteIncrements.current.add(newMsgId);
 
     // 同步更新字典（不直接修改对象属性，而是替换对象）
-    const quotedMsg = quotedMessagesMap.current.get(targetMsgId);
+    const quotedMsg = quotedMessagesMap[targetMsgId];
     if (quotedMsg) {
       const updatedMsg = { ...quotedMsg, quote_num: (quotedMsg.quote_num || 0) + 1 };
-      quotedMessagesMap.current.set(targetMsgId, updatedMsg);
+      setQuotedMessagesMap(prev => ({ ...prev, [targetMsgId]: updatedMsg }));
     }
 
     // 更新状态
@@ -47,23 +47,75 @@ export const useChat = (currentUserId: number) => {
   // A global map to easily lookup quoted messages by their actual msg_id
   // This is a ref because we don't need to trigger re-renders when it updates
   // and we want it immediately available.
-  const quotedMessagesMap = useRef<Map<number, HistoryMessageItem | LocalMessage>>(new Map());
+  const [quotedMessagesMap, setQuotedMessagesMap] = useState<Record<number, LocalMessage>>(() => {
+    const dict: Record<number, LocalMessage> = {};
+    try {
+      const cached = localStorage.getItem(`chat_messages_map_${currentUserId}`);
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        Object.values(parsed).forEach((msgs: any) => {
+          msgs.forEach((msg: any) => {
+            if (msg.msg_id) dict[msg.msg_id] = msg;
+          });
+        });
+      }
+    } catch (e) { console.error(e); }
+    return dict;
+  });
+
+  const updateQuoteDict = useCallback((messages: (HistoryMessageItem | LocalMessage)[]) => {
+    setQuotedMessagesMap(prev => {
+      const newDict = { ...prev };
+      let changed = false;
+      messages.forEach(msg => {
+        if (msg.msg_id && !newDict[msg.msg_id]) {
+          newDict[msg.msg_id] = msg as LocalMessage;
+          changed = true;
+        }
+      });
+      return changed ? newDict : prev;
+    });
+  }, []);
+
+  // 3. 自动补全缺失的引用内容
+  const fetchMissingQuotes = useCallback(async (conversationId: number, messages: LocalMessage[]) => {
+    // 找出所有本地字典里没有的 quote_msg_id
+    const missingIds = Array.from(new Set(
+      messages
+        .map(m => m.quote_msg_id)
+        .filter((id): id is number => !!id && !quotedMessagesMap[id])
+    ));
+
+    if (missingIds.length === 0) return;
+
+    await Promise.all(missingIds.map(async (id) => {
+      try {
+        // 【修正 1】：必须传入真实的 conversationId，否则后端会报权限错误
+        const res = await chatApi.getMessageHistory({ 
+          conversation_id: conversationId, 
+          start_msg_id: id + 1, // 因为后端的游标是 < msg_id，所以查特定 id 需要 +1
+          limit: 1 
+        });
+
+        // 【修正 2】：使用与 loadMessageHistory 相同的安全解包逻辑
+        const historyArray = Array.isArray(res) ? res : ((res as any).data || []);
+        const msg = historyArray[0];
+
+        if (msg && msg.msg_id === id) {
+          updateQuoteDict([msg]);
+        }
+      } catch (e) {
+        console.warn(`无法补全消息内容 ${id}`, e);
+      }
+    }));
+  }, [quotedMessagesMap, updateQuoteDict]);
 
   // Store messages by conversation_id, lazily initialized from localStorage
   const [messagesMap, setMessagesMap] = useState<Record<number, LocalMessage[]>>(() => {
     try {
       const cached = localStorage.getItem(`chat_messages_map_${currentUserId}`);
       if (cached) {
-        const parsed = JSON.parse(cached);
-        // 【核心修复】：把缓存里的消息同步塞进字典里！
-        Object.values(parsed).forEach((msgs: any) => {
-          msgs.forEach((msg: any) => {
-            if (msg.msg_id) {
-              quotedMessagesMap.current.set(msg.msg_id, msg);
-            }
-          });
-        });
-        return parsed;
+        return JSON.parse(cached);
       }
     } catch (e) {
       console.error('Failed to load cached messages map', e);
@@ -141,11 +193,14 @@ export const useChat = (currentUserId: number) => {
         throw new Error("Invalid history response format");
       }
 
+      // 1. 先更新字典
+      updateQuoteDict(history);
+      
+      // 2. 异步补全缺失的引用消息（【修改】：传入 conversationId）
+      fetchMissingQuotes(conversationId, history as any);
 
       // Update our quotedMessagesMap reference Map
-      history.forEach(msg => {
-        quotedMessagesMap.current.set(msg.msg_id, msg);
-      });
+      updateQuoteDict(history);
 
       // Reverse history so oldest is first (index 0)
       const reversedHistory = [...history].reverse();
@@ -229,22 +284,29 @@ export const useChat = (currentUserId: number) => {
 
       if ((res.code === 0 || res.code === 200) && res.data) {
         const { msg_id, server_time } = res.data;
-
-        if (quotedMessagesMap.current.has(msg_id)) {
-          return; // 发现重复，果断全身而退！
-        }
-
         const finalMessage = { ...optimisticMessage, msg_id, create_time: server_time };
 
-        quotedMessagesMap.current.set(msg_id, finalMessage as LocalMessage); 
+        let isDuplicate = false; // 设置一个局部信号枪
 
+        // 1. 将数据插入和去重检查合并，确保使用的是绝对最新的列表
         setMessagesMap(prev => {
           const conversationMessages = prev[conversationId] || [];
+          // 真正的防重检查：在这个回调里查最新的状态！
+          if (conversationMessages.some(m => m.msg_id === msg_id)) {
+            isDuplicate = true; // 发现重复，开枪！
+            return prev;        // 啥也不干，原样返回
+          }
           return {
             ...prev,
             [conversationId]: [...conversationMessages, finalMessage]
           };
         });
+
+        // 2. 如果刚才开枪了（被 WebSocket 抢先了），HTTP 任务直接提前下班！
+        if (isDuplicate) return;
+
+        // 3. 只有当 HTTP 是赢家时，才执行后续的写字典和增加引用操作
+        setQuotedMessagesMap(prev => ({ ...prev, [msg_id]: finalMessage as LocalMessage }));
 
         if (quoteMsgId && msg_id) {
           incrementQuoteCount(msg_id, quoteMsgId, conversationId);
@@ -322,9 +384,29 @@ export const useChat = (currentUserId: number) => {
              );
              
              // 同步更新全局的引用字典
-             const quotedMsg = quotedMessagesMap.current.get(msgToDelete.quote_msg_id);
-             if (quotedMsg && quotedMsg.quote_num) {
-                quotedMsg.quote_num = Math.max(0, quotedMsg.quote_num - 1);
+             if (msgToDelete && msgToDelete.quote_msg_id) {
+                const targetQuoteId = msgToDelete.quote_msg_id;
+                
+                updatedMessages = updatedMessages.map(m =>
+                  m.msg_id === targetQuoteId
+                    ? { ...m, quote_num: Math.max(0, (m.quote_num || 0) - 1) }
+                    : m
+                );
+                
+                // 使用 prev 函数式更新，不依赖外部的 quotedMessagesMap，并保持对象不可变
+                setQuotedMessagesMap(prevDict => {
+                   const qMsg = prevDict[targetQuoteId];
+                   if (qMsg && qMsg.quote_num) {
+                      return {
+                         ...prevDict,
+                         [targetQuoteId]: {
+                            ...qMsg,
+                            quote_num: Math.max(0, qMsg.quote_num - 1)
+                         }
+                      };
+                   }
+                   return prevDict;
+                });
              }
           }
 
@@ -409,7 +491,7 @@ export const useChat = (currentUserId: number) => {
     }
 
     if (newMsg.msg_id) {
-      quotedMessagesMap.current.set(newMsg.msg_id, newMsg as any);
+      setQuotedMessagesMap(prev => ({ ...prev, [newMsg.msg_id!]: newMsg }));
     }
 
     setConversations(prev => {
@@ -454,7 +536,7 @@ export const useChat = (currentUserId: number) => {
   return {
     conversations: sortedConversations,
     messagesMap,
-    quotedMessagesMap: quotedMessagesMap.current,
+    quotedMessagesMap,
     loadConversations,
     loadMessageHistory,
     sendChatMessage,

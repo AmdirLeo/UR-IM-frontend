@@ -556,8 +556,8 @@ export const ChatPanel: React.FC<ChatPanelProps & { activeChatName?: string; act
                       onClick={() => jumpToQuotedMessage(msg.quote_msg_id!)}
                     >
                       回复: {(() => {
-                        const quotedMsg = quotedMessagesMap.get(msg.quote_msg_id!);
-                        if (!quotedMsg) return '原消息不在当前设备或已被删除';
+                        const quotedMsg = quotedMessagesMap[msg.quote_msg_id!];
+                        if (!quotedMsg) return '正在加载原消息...'; // 状态改变后会自动变成真实内容
 
                         let qContent = quotedMsg.msg_content || '';
                         if (qContent.startsWith('{')) {
@@ -568,7 +568,7 @@ export const ChatPanel: React.FC<ChatPanelProps & { activeChatName?: string; act
                             // Ignored intentionally
                           }
                         }
-                        return `${quotedMsg.sender_id === Number(currentUserId) ? '我' : quotedMsg.sender_id}: ${qContent}`;
+                        return `${quotedMsg.sender_id === Number(currentUserId) ? '我' : (activeChatName || quotedMsg.sender_id)}: ${qContent}`;
                       })()}
                     </div>
                   )}
