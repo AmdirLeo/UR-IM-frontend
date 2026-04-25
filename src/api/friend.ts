@@ -32,6 +32,11 @@ export interface FriendHandleRequest {
   action: 'accepted' | 'rejected';
 }
 
+export interface RemoveFriendRequest {
+  friend_user_id: number;
+  delete_history: boolean;
+}
+
 export interface FriendInfo {
   user_id: number;
   username: string;
@@ -141,8 +146,12 @@ export const handleFriendRequest = async (request_id: number, action: 'accepted'
   return response.data;
 };
 
-export const removeFriend = async (friend_user_id: number) => {
-  const response = await api.delete(`/friend/remove/${friend_user_id}`);
+export const removeFriend = async (friend_user_id: number, delete_history: boolean = false) => {
+  const payload: RemoveFriendRequest = {
+    friend_user_id,
+    delete_history
+  };
+  const response = await api.post('/friend/remove', payload);
   return response.data;
 };
 

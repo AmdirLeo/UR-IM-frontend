@@ -21,7 +21,7 @@ interface ChatContextType {
   deleteChatMessage: (conversationId: number, msgId: number) => Promise<boolean>;
   togglePinConversation: (conversationId: number, isPinned: boolean) => Promise<boolean>;
   toggleMuteConversation: (conversationId: number, isMuted: boolean) => Promise<boolean>;
-  quotedMessagesMap: Map<number, LocalMessage | any>;
+  quotedMessagesMap: Record<number, LocalMessage>;
 }
 
 const ChatContext = createContext<ChatContextType | undefined>(undefined);

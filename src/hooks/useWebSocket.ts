@@ -153,50 +153,59 @@ export const useWebSocket = (token: string | null): UseWebSocketReturn => {
           setMessages((prev) => [...prev, data]);
 
         } else if (data.type === 'NEW_CHAT_MESSAGE') {
-
           const innerData = data.data;
 
-          // 1. 拦截好友申请消息 (sender_id === -1)
+          // 专门处理来自系统（sender_id === -1）的消息
           if (innerData?.sender_id === -1) {
-            console.log('🔔 成功拦截好友申请！放入专属列表。');
-            // Parse actual sender id from JSON extra payload
-            let realSenderId = -1;
+            // 1. 先尝试解析 JSON 内容，看看信封里面装的是什么
+            let parsedContent: any = {};
             try {
-              if (innerData.msg_type === 'card' || innerData.msg_type === 'notify') {
-                const contentObj = JSON.parse(innerData.content);
-                realSenderId = contentObj.extra?.sender_id || -1;
-              }
+              parsedContent = JSON.parse(innerData.content);
             } catch (e) {
-               // ignore
+              console.error('Failed to parse system message content');
             }
 
-            const enrichedData = {
-              ...data,
-              data: {
-                ...innerData,
-                _applicant_id: realSenderId
-              }
-            };
+            const msgType = innerData.msg_type; // 'card' 或者是 'notify'
+            const extra = parsedContent.extra || {};
 
-            setFriendRequests((prev) => {
-              if (prev.find(r => r.data.msg_id === innerData.msg_id)) return prev;
-              return [...prev, enrichedData];
-            });
-            return; // 提前退出，别塞进聊天框
+            // 🌟 情况 A：这确实是一条【好友申请】
+            if (msgType === 'card' && extra.card_type === 'friend_apply') {
+              console.log('🔔 成功拦截好友申请！放入专属列表。');
+              
+              const realSenderId = extra.sender_id || -1;
+              const enrichedData = {
+                ...data,
+                data: {
+                  ...innerData,
+                  _applicant_id: realSenderId
+                }
+              };
+
+              setFriendRequests((prev) => {
+                if (prev.find(r => r.data.msg_id === innerData.msg_id)) return prev;
+                return [...prev, enrichedData];
+              });
+              return; // 处理完毕，退出
+            }
+
+            // 🌟 情况 B：这是一条【同意好友的系统通知】
+            if (msgType === 'notify' && extra.action === 'friend_accept') {
+              console.log('🔔 对方同意了好友申请！系统通知：', extra.tips);
+              // 触发全局事件，让其他组件去刷新通讯录等
+              window.dispatchEvent(new CustomEvent('remote_friend_accept'));
+              
+              // 视你的需求而定：如果你想在聊天界面显示一条灰色的系统提示，就把取消下面这行的注释
+              // setMessages((prev) => [...prev, data]);
+              
+              return; // 处理完毕，退出
+            }
+
+            // 其他未知的系统消息，直接忽略或交由兜底逻辑
+            console.log('收到未知的系统消息:', data);
+            return; 
           }
 
-          // 2. 拦截通知类消息 (同意好友) - ⚠️ 注意：根据之前的后端文档，同意好友可能是 notify + action
-          if (
-            (innerData?.msg_type === 'notify' && innerData?.extra?.action === 'friend_accept') ||
-            (innerData?.msg_type === 'card' && innerData?.extra?.card_type === 'friend_accept') // 兼容你之前的写法
-          ) {
-            console.log('🔔 对方同意了好友申请！');
-            window.dispatchEvent(new CustomEvent('remote_friend_accept'));
-            setMessages((prev) => [...prev, data]);
-            return;
-          }
-
-          // 3. 其他类型的 NEW_CHAT_MESSAGE（文本、图片等常规消息）
+          // 3. 其他常规用户的消息（文本、图片等）
           setMessages((prev) => [...prev, data]);
         }
       } catch (err) {

@@ -1,18 +1,22 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { MoreHorizontal, User } from 'lucide-react';
+import { MoreHorizontal, User, Search } from 'lucide-react';
 import { useChatContext } from '../../context/ChatContext';
-import { ChevronsDown, ClipboardPaste, MessageSquareQuote, Trash2, X } from 'lucide-react';
+import { ChevronsDown, ClipboardPaste, MessageSquareQuote, Trash2, X, RefreshCw } from 'lucide-react';
+import { MessageSearchModal } from './MessageSearchModal';
 import { useContextMenu } from '../common/ContextMenu/useContextMenu';
 import { ContextMenu, ContextMenuItem } from '../common/ContextMenu/ContextMenu';
 import { LocalMessage } from '../../hooks/useChat';
 import { UserInfoModal } from './UserInfoModal';
 import { formatMessageBubbleTime, shouldShowTimeBubble } from '../../utils/timeFormat';
+import { RemoveFriendModal } from './RemoveFriendModal';
+import { useContactContext } from '../../context/ContactContext';
+import { removeFriend } from '../../api/friend';
 
 interface ChatPanelProps {
   activeChatId: number;
   currentUserId: string;
   isConnected: boolean;
-  sendMessage: (conversationId: number, content: string, type?: "text" | "image" | "card" | "notify", quoteMsgId?: number) => void;
+  sendMessage: (conversationId: number, content: string, type?: "text" | "image" | "card" | "notify", quoteMsgId?: number, existingLocalId?: string) => void;
 }
 
 import { formatAvatarUrl } from '../../utils/url';
@@ -40,6 +44,56 @@ export const ChatPanel: React.FC<ChatPanelProps & { activeChatName?: string; act
 
   // Avatar interaction state
   const [userInfoModalId, setUserInfoModalId] = useState<number | null>(null);
+
+  // Search state
+  const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
+
+  // Header Dropdown state
+  const { xPos: headerXPos, yPos: headerYPos, showMenu: showHeaderMenu, setShowMenu: setShowHeaderMenu, handleContextMenu: handleHeaderContextMenu } = useContextMenu();
+  const [isRemoveFriendModalOpen, setIsRemoveFriendModalOpen] = useState(false);
+
+  const { friends, removeFriendState } = useContactContext();
+
+  // Find current conversation metadata
+  const currentConversation = conversations.find(c => c.conversation_id === activeChatId);
+  const isGroupChat = currentConversation?.type === 'group';
+
+  // Check if current private chat target is still a friend
+  const targetUserId = currentConversation?.target_id || currentConversation?.target_user_id || currentConversation?.last_msg_sender_id;
+  const isFriend = React.useMemo(() => {
+    if (isGroupChat) return true;
+    if (!targetUserId) return false;
+    return friends.some(f => f.user_id === targetUserId);
+  }, [friends, isGroupChat, targetUserId]);
+
+  const headerMenuItems: ContextMenuItem[] = React.useMemo(() => {
+    const items: ContextMenuItem[] = [];
+    if (!isGroupChat && isFriend) {
+      items.push({
+        label: '删除好友',
+        icon: <Trash2 className="w-4 h-4 text-red-500" />,
+        danger: true,
+        onClick: () => setIsRemoveFriendModalOpen(true)
+      });
+    }
+    return items;
+  }, [isGroupChat, isFriend]);
+
+  const handleRemoveFriendConfirm = async (deleteHistory: boolean) => {
+    if (targetUserId) {
+      await removeFriend(targetUserId, deleteHistory);
+      removeFriendState(targetUserId);
+
+      // If we are deleting history, optionally we might want to trigger `removeMessagesWithUser`
+      // For now we'll emit a custom event to notify Sidebar/ChatList or let WebSocket sync handle it.
+      window.dispatchEvent(new CustomEvent('friendRemoved', { detail: { friendId: targetUserId } }));
+
+      // If deleteHistory is true, we should also clear the chat messages locally for immediate feedback
+      if (deleteHistory) {
+         // Optionally you can clear local messages here
+      }
+    }
+  };
 
   // Get active messages from the context map
   const activeMessagesRaw = messagesMap[activeChatId];
@@ -137,9 +191,6 @@ export const ChatPanel: React.FC<ChatPanelProps & { activeChatName?: string; act
   const lastActiveChatIdRef = useRef<number | null>(null);
   const lastProcessedMsgIdRef = useRef<number | null>(null);
   const scrollTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  // Find current conversation metadata
-  const currentConversation = conversations.find(c => c.conversation_id === activeChatId);
 
   // Resize handler for Chat Input Area
   useEffect(() => {
@@ -329,6 +380,74 @@ export const ChatPanel: React.FC<ChatPanelProps & { activeChatName?: string; act
     };
   }, [activeChatId, activeMessages, isLoadingHistory, hasMoreHistory, loadMessageHistory]);
 
+  // ======= 新增：引用消息跳转与历史溯源逻辑 =======
+  const jumpToQuotedMessage = async (targetMsgId: number) => {
+    // 内部高亮动画方法
+    const highlightMessage = (el: HTMLElement) => {
+      el.style.transition = 'background-color 0.5s';
+      el.style.backgroundColor = 'var(--bg-secondary)';
+      setTimeout(() => {
+        el.style.backgroundColor = '';
+      }, 1500);
+    };
+
+    // 1. 尝试在当前 DOM 查找
+    let targetEl = document.getElementById(`msg-${targetMsgId}`);
+
+    if (targetEl) {
+      targetEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      highlightMessage(targetEl);
+    } else {
+      // 2. 找不到，说明在更早的历史记录里，需要递归向上拉取
+      setIsLoadingHistory(true);
+      try {
+        let found = false;
+        // 拿到当前屏幕上最老的一条消息作为初始游标
+        let currentCursor = activeMessages[0]?.msg_id;
+        let currentHasMore = hasMoreHistory;
+
+        // 循环拉取直到找到该 ID 或没有更多历史
+        while (!found && currentHasMore) {
+          // 这里使用 30，与你下方的 observer 加载数量保持一致
+          const olderData = await loadMessageHistory(activeChatId, currentCursor, 30);
+          if (!olderData || olderData.length === 0) {
+            setHasMoreHistory(false);
+            break;
+          }
+
+          // loadMessageHistory 返回的数组最后一条是最老的消息
+          currentCursor = olderData[olderData.length - 1].msg_id;
+          currentHasMore = olderData.length === 30;
+          setHasMoreHistory(currentHasMore);
+
+          found = olderData.some((m: any) => m.msg_id === targetMsgId);
+
+          // ⚠️ 关键点：给 React 状态更新和 DOM 重新渲染留出足够的时间
+          await new Promise(resolve => setTimeout(resolve, 150));
+
+          targetEl = document.getElementById(`msg-${targetMsgId}`);
+          if (targetEl) {
+            targetEl.scrollIntoView({ behavior: 'auto', block: 'center' });
+            highlightMessage(targetEl);
+            found = true;
+          }
+        }
+      } catch (error) {
+        console.error("Jump to message failed:", error);
+      } finally {
+        setIsLoadingHistory(false);
+      }
+    }
+  };
+  
+  let quotingPreviewText = quotingMessage?.msg_content || '';
+  if (quotingPreviewText.startsWith('{')) {
+    try {
+      const parsed = JSON.parse(quotingPreviewText);
+      quotingPreviewText = parsed.content || quotingPreviewText;
+    } catch (e) {}
+  }
+
   return (
     <div className="flex-1 h-full bg-primary flex flex-col min-w-[400px] relative">
       {/* Header */}
@@ -341,9 +460,42 @@ export const ChatPanel: React.FC<ChatPanelProps & { activeChatName?: string; act
 
         {/* Window controls (Mock) */}
         <div className="flex items-center space-x-4 text-secondary">
-          <MoreHorizontal className="w-5 h-5 ml-2 hover:text-primary cursor-pointer" />
+          <Search
+            className="w-5 h-5 ml-2 hover:text-primary cursor-pointer transition-colors"
+            onClick={() => setIsSearchModalOpen(true)}
+          />
+          <MoreHorizontal
+            className="w-5 h-5 ml-2 hover:text-primary cursor-pointer"
+            onClick={(e) => {
+               if (headerMenuItems.length > 0) {
+                 handleHeaderContextMenu(e as any);
+               }
+            }}
+          />
         </div>
       </div>
+
+      <ContextMenu
+        x={headerXPos}
+        y={headerYPos}
+        show={showHeaderMenu}
+        onClose={() => setShowHeaderMenu(false)}
+        items={headerMenuItems}
+      />
+
+      <RemoveFriendModal
+        isOpen={isRemoveFriendModalOpen}
+        onClose={() => setIsRemoveFriendModalOpen(false)}
+        onConfirm={handleRemoveFriendConfirm}
+        friendName={activeChatName}
+      />
+
+      <MessageSearchModal
+        conversationId={activeChatId}
+        isOpen={isSearchModalOpen}
+        onClose={() => setIsSearchModalOpen(false)}
+        isGroupChat={isGroupChat}
+      />
 
       {/* Message History Area */}
       <div
@@ -433,7 +585,11 @@ export const ChatPanel: React.FC<ChatPanelProps & { activeChatName?: string; act
                   </div>
                 )}
 
-                <div ref={isThresholdNode ? observerTarget : null} className={`flex ${isMe ? 'justify-end' : 'justify-start'} mb-4 ${msg.isFailed ? 'opacity-50' : ''}`}>
+                <div 
+                  id={`msg-${msg.msg_id || msg.local_id}`} 
+                  ref={isThresholdNode ? observerTarget : null} 
+                  className={`flex ${isMe ? 'justify-end' : 'justify-start'} mb-4 ${msg.isFailed ? 'opacity-50' : ''}`}
+                >
                 {!isMe && (
                   <div className="flex flex-col items-center mr-3">
                     <span className="text-[10px] text-secondary mb-1 whitespace-nowrap overflow-hidden text-ellipsis max-w-[60px]">{activeChatName || msg.sender_id}</span>
@@ -465,22 +621,11 @@ export const ChatPanel: React.FC<ChatPanelProps & { activeChatName?: string; act
                   {msg.quote_msg_id && (
                     <div
                       className="bg-primary/10 border-l-2 border-primary/30 pl-2 py-1 mb-2 text-xs text-secondary opacity-70 cursor-pointer hover:opacity-100 transition-opacity"
-                      onClick={() => {
-                        const targetEl = document.getElementById(`msg-${msg.quote_msg_id}`);
-                        if (targetEl) {
-                          targetEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                          // Add a brief highlight effect
-                          targetEl.style.transition = 'background-color 0.5s';
-                          targetEl.style.backgroundColor = 'var(--bg-secondary)';
-                          setTimeout(() => {
-                            targetEl.style.backgroundColor = '';
-                          }, 1500);
-                        }
-                      }}
+                      onClick={() => jumpToQuotedMessage(msg.quote_msg_id!)}
                     >
                       回复: {(() => {
-                        const quotedMsg = quotedMessagesMap.get(msg.quote_msg_id!);
-                        if (!quotedMsg) return 'not in local storage';
+                        const quotedMsg = quotedMessagesMap[msg.quote_msg_id!];
+                        if (!quotedMsg) return '正在加载原消息...'; // 状态改变后会自动变成真实内容
 
                         let qContent = quotedMsg.msg_content || '';
                         if (qContent.startsWith('{')) {
@@ -491,7 +636,7 @@ export const ChatPanel: React.FC<ChatPanelProps & { activeChatName?: string; act
                             // Ignored intentionally
                           }
                         }
-                        return `${quotedMsg.sender_id === Number(currentUserId) ? '我' : quotedMsg.sender_id}: ${qContent}`;
+                        return `${quotedMsg.sender_id === Number(currentUserId) ? '我' : (activeChatName || quotedMsg.sender_id)}: ${qContent}`;
                       })()}
                     </div>
                   )}
@@ -508,7 +653,15 @@ export const ChatPanel: React.FC<ChatPanelProps & { activeChatName?: string; act
                   )}
 
                   {msg.isSending && <span className="absolute bottom-[-15px] right-0 text-[10px] text-tertiary">Sending...</span>}
-                  {msg.isFailed && <span className="absolute bottom-[-15px] right-0 text-[10px] text-danger">Failed</span>}
+                  {msg.isFailed && (
+                    <button
+                      onClick={() => sendMessage(activeChatId, msg.msg_content, msg.msg_type as any, msg.quote_msg_id, msg.local_id)}
+                      className="absolute top-1/2 -translate-y-1/2 left-[-28px] p-1 rounded-full bg-white dark:bg-gray-800 shadow hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer transition-colors group"
+                      title="发送失败，点击重发"
+                    >
+                      <RefreshCw className="w-3.5 h-3.5 text-danger group-hover:rotate-180 transition-transform duration-300" />
+                    </button>
+                  )}
                 </div>
 
                 {isMe && (
@@ -570,52 +723,60 @@ export const ChatPanel: React.FC<ChatPanelProps & { activeChatName?: string; act
         style={{ height: `${inputHeight}px` }}
         className="bg-primary border-t border-primary flex flex-col shrink-0 px-4 pt-3 pb-3 transition-colors relative"
       >
-        {/* Quote Preview */}
-        {quotingMessage && (
-          <div className="absolute top-[-40px] left-0 right-0 h-[40px] bg-secondary border-t border-primary flex items-center px-4 justify-between shadow-sm">
-            <span className="text-xs text-secondary truncate flex-1">
-              回复 {quotingMessage.sender_id === -1 ? 'System' : (quotingMessage.sender_id?.toString() === currentUserId ? '自己' : activeChatName || quotingMessage.sender_id)}: {quotingMessage.msg_content}
-            </span>
-            <button onClick={() => setQuotingMessage(null)} className="ml-2 p-1 hover:bg-hover rounded-full">
-              <X className="w-4 h-4 text-tertiary" />
-            </button>
+        {!isGroupChat && !isFriend ? (
+          <div className="flex-1 flex items-center justify-center">
+            <span className="text-sm text-secondary">您与对方已不是好友，无法发送消息。</span>
           </div>
+        ) : (
+          <>
+            {/* Quote Preview */}
+            {quotingMessage && (
+              <div className="absolute top-[-40px] left-0 right-0 h-[40px] bg-secondary border-t border-primary flex items-center px-4 justify-between shadow-sm">
+                <span className="text-xs text-secondary truncate flex-1">
+                  回复 {quotingMessage.sender_id === -1 ? 'System' : (quotingMessage.sender_id?.toString() === currentUserId ? '自己' : activeChatName || quotingMessage.sender_id)}: {quotingPreviewText}
+                </span>
+                <button onClick={() => setQuotingMessage(null)} className="ml-2 p-1 hover:bg-hover rounded-full">
+                  <X className="w-4 h-4 text-tertiary" />
+                </button>
+              </div>
+            )}
+            {/* Text Area */}
+            <textarea
+              ref={textareaRef}
+              className="flex-1 bg-transparent border-none outline-none resize-none text-primary text-base"
+              placeholder="Type a message..."
+              value={inputText}
+              onChange={(e) => setInputText(e.target.value)}
+              onKeyDown={handleKeyDown}
+              onContextMenu={(e) => {
+                 e.preventDefault();
+                 handleInputContextMenu(e);
+              }}
+            />
+
+            <ContextMenu
+              x={inputXPos}
+              y={inputYPos}
+              show={showInputMenu}
+              onClose={() => setShowInputMenu(false)}
+              items={inputMenuItems}
+            />
+
+            {/* Send Button */}
+            <div className="flex justify-end mt-2">
+              <button
+                onClick={handleSend}
+                disabled={!inputText.trim()}
+                className={`px-6 py-1.5 rounded text-[14px] font-medium transition-colors ${inputText.trim()
+                  ? 'bg-secondary hover:bg-hover text-success'
+                  : 'bg-secondary text-secondary border border-primary cursor-not-allowed'
+                  }`}
+              >
+                Send
+              </button>
+            </div>
+          </>
         )}
-        {/* Text Area */}
-        <textarea
-          ref={textareaRef}
-          className="flex-1 bg-transparent border-none outline-none resize-none text-primary text-base"
-          placeholder="Type a message..."
-          value={inputText}
-          onChange={(e) => setInputText(e.target.value)}
-          onKeyDown={handleKeyDown}
-          onContextMenu={(e) => {
-             e.preventDefault();
-             handleInputContextMenu(e);
-          }}
-        />
-
-        <ContextMenu
-          x={inputXPos}
-          y={inputYPos}
-          show={showInputMenu}
-          onClose={() => setShowInputMenu(false)}
-          items={inputMenuItems}
-        />
-
-        {/* Send Button */}
-        <div className="flex justify-end mt-2">
-          <button
-            onClick={handleSend}
-            disabled={!inputText.trim()}
-            className={`px-6 py-1.5 rounded text-[14px] font-medium transition-colors ${inputText.trim()
-              ? 'bg-secondary hover:bg-hover text-success'
-              : 'bg-secondary text-secondary border border-primary cursor-not-allowed'
-              }`}
-          >
-            Send
-          </button>
-        </div>
       </div>
     </div>
   );
