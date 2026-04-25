@@ -21,7 +21,7 @@ export const ContactDetail: React.FC<ContactDetailProps> = ({
   avatarUrl,
   onSendMessage
 }) => {
-  const { forceRefresh } = useContactContext();
+  const { forceRefresh, removeFriendState } = useContactContext();
   const [friendDetails, setFriendDetails] = useState<FriendInfo | null>(null);
   const [loading, setLoading] = useState(false);
   const [removing, setRemoving] = useState(false);
@@ -57,9 +57,11 @@ export const ContactDetail: React.FC<ContactDetailProps> = ({
     if (window.confirm('Are you sure you want to remove this friend?')) {
       setRemoving(true);
       try {
-        await removeFriend(contactId);
-        // Refresh friend list and clear selection
-        await forceRefresh();
+        await removeFriend(contactId, false);
+        // Refresh friend list and clear selection locally immediately
+        removeFriendState(contactId);
+        // Also force a background refresh
+        forceRefresh();
         // Clear the active contact selection
         // Note: This requires the parent component to handle clearing the selection
         // For now, we'll emit a custom event that the parent can listen to

@@ -18,6 +18,7 @@ interface ContactContextType {
   loading: boolean;
   forceRefresh: () => Promise<void>;
   setTags: React.Dispatch<React.SetStateAction<string[]>>;
+  removeFriendState: (friendId: number) => void;
 }
 
 export const ContactContext = createContext<ContactContextType | undefined>(undefined);
@@ -124,8 +125,16 @@ export const ContactProvider: React.FC<ContactProviderProps> = ({ children }) =>
     };
   }, [isAuthenticated, forceRefresh]);
 
+  const removeFriendState = useCallback((friendId: number) => {
+    setFriends((prev) => {
+      const updatedFriends = prev.filter(f => f.user_id !== friendId);
+      localStorage.setItem('friend_list_meta', JSON.stringify(updatedFriends));
+      return updatedFriends;
+    });
+  }, []);
+
   return (
-    <ContactContext.Provider value={{ friends, tags, loading, forceRefresh, setTags }}>
+    <ContactContext.Provider value={{ friends, tags, loading, forceRefresh, setTags, removeFriendState }}>
       {children}
     </ContactContext.Provider>
   );

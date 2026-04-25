@@ -8,6 +8,9 @@ import { ContextMenu, ContextMenuItem } from '../common/ContextMenu/ContextMenu'
 import { LocalMessage } from '../../hooks/useChat';
 import { UserInfoModal } from './UserInfoModal';
 import { formatMessageBubbleTime, shouldShowTimeBubble } from '../../utils/timeFormat';
+import { RemoveFriendModal } from './RemoveFriendModal';
+import { useContactContext } from '../../context/ContactContext';
+import { removeFriend } from '../../api/friend';
 
 interface ChatPanelProps {
   activeChatId: number;
@@ -44,6 +47,53 @@ export const ChatPanel: React.FC<ChatPanelProps & { activeChatName?: string; act
 
   // Search state
   const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
+
+  // Header Dropdown state
+  const { xPos: headerXPos, yPos: headerYPos, showMenu: showHeaderMenu, setShowMenu: setShowHeaderMenu, handleContextMenu: handleHeaderContextMenu } = useContextMenu();
+  const [isRemoveFriendModalOpen, setIsRemoveFriendModalOpen] = useState(false);
+
+  const { friends, removeFriendState } = useContactContext();
+
+  // Find current conversation metadata
+  const currentConversation = conversations.find(c => c.conversation_id === activeChatId);
+  const isGroupChat = currentConversation?.type === 'group';
+
+  // Check if current private chat target is still a friend
+  const targetUserId = currentConversation?.target_id || currentConversation?.target_user_id || currentConversation?.last_msg_sender_id;
+  const isFriend = React.useMemo(() => {
+    if (isGroupChat) return true;
+    if (!targetUserId) return false;
+    return friends.some(f => f.user_id === targetUserId);
+  }, [friends, isGroupChat, targetUserId]);
+
+  const headerMenuItems: ContextMenuItem[] = React.useMemo(() => {
+    const items: ContextMenuItem[] = [];
+    if (!isGroupChat && isFriend) {
+      items.push({
+        label: '删除好友',
+        icon: <Trash2 className="w-4 h-4 text-red-500" />,
+        danger: true,
+        onClick: () => setIsRemoveFriendModalOpen(true)
+      });
+    }
+    return items;
+  }, [isGroupChat, isFriend]);
+
+  const handleRemoveFriendConfirm = async (deleteHistory: boolean) => {
+    if (targetUserId) {
+      await removeFriend(targetUserId, deleteHistory);
+      removeFriendState(targetUserId);
+
+      // If we are deleting history, optionally we might want to trigger `removeMessagesWithUser`
+      // For now we'll emit a custom event to notify Sidebar/ChatList or let WebSocket sync handle it.
+      window.dispatchEvent(new CustomEvent('friendRemoved', { detail: { friendId: targetUserId } }));
+
+      // If deleteHistory is true, we should also clear the chat messages locally for immediate feedback
+      if (deleteHistory) {
+         // Optionally you can clear local messages here
+      }
+    }
+  };
 
   // Get active messages from the context map
   const activeMessagesRaw = messagesMap[activeChatId];
@@ -141,10 +191,6 @@ export const ChatPanel: React.FC<ChatPanelProps & { activeChatName?: string; act
   const lastActiveChatIdRef = useRef<number | null>(null);
   const lastProcessedMsgIdRef = useRef<number | null>(null);
   const scrollTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  // Find current conversation metadata
-  const currentConversation = conversations.find(c => c.conversation_id === activeChatId);
-  const isGroupChat = currentConversation?.type === 'group';
 
   // Resize handler for Chat Input Area
   useEffect(() => {
@@ -418,9 +464,31 @@ export const ChatPanel: React.FC<ChatPanelProps & { activeChatName?: string; act
             className="w-5 h-5 ml-2 hover:text-primary cursor-pointer transition-colors"
             onClick={() => setIsSearchModalOpen(true)}
           />
-          <MoreHorizontal className="w-5 h-5 ml-2 hover:text-primary cursor-pointer" />
+          <MoreHorizontal
+            className="w-5 h-5 ml-2 hover:text-primary cursor-pointer"
+            onClick={(e) => {
+               if (headerMenuItems.length > 0) {
+                 handleHeaderContextMenu(e as any);
+               }
+            }}
+          />
         </div>
       </div>
+
+      <ContextMenu
+        x={headerXPos}
+        y={headerYPos}
+        show={showHeaderMenu}
+        onClose={() => setShowHeaderMenu(false)}
+        items={headerMenuItems}
+      />
+
+      <RemoveFriendModal
+        isOpen={isRemoveFriendModalOpen}
+        onClose={() => setIsRemoveFriendModalOpen(false)}
+        onConfirm={handleRemoveFriendConfirm}
+        friendName={activeChatName}
+      />
 
       <MessageSearchModal
         conversationId={activeChatId}
@@ -655,52 +723,60 @@ export const ChatPanel: React.FC<ChatPanelProps & { activeChatName?: string; act
         style={{ height: `${inputHeight}px` }}
         className="bg-primary border-t border-primary flex flex-col shrink-0 px-4 pt-3 pb-3 transition-colors relative"
       >
-        {/* Quote Preview */}
-        {quotingMessage && (
-          <div className="absolute top-[-40px] left-0 right-0 h-[40px] bg-secondary border-t border-primary flex items-center px-4 justify-between shadow-sm">
-            <span className="text-xs text-secondary truncate flex-1">
-              回复 {quotingMessage.sender_id === -1 ? 'System' : (quotingMessage.sender_id?.toString() === currentUserId ? '自己' : activeChatName || quotingMessage.sender_id)}: {quotingPreviewText}
-            </span>
-            <button onClick={() => setQuotingMessage(null)} className="ml-2 p-1 hover:bg-hover rounded-full">
-              <X className="w-4 h-4 text-tertiary" />
-            </button>
+        {!isGroupChat && !isFriend ? (
+          <div className="flex-1 flex items-center justify-center">
+            <span className="text-sm text-secondary">您与对方已不是好友，无法发送消息。</span>
           </div>
+        ) : (
+          <>
+            {/* Quote Preview */}
+            {quotingMessage && (
+              <div className="absolute top-[-40px] left-0 right-0 h-[40px] bg-secondary border-t border-primary flex items-center px-4 justify-between shadow-sm">
+                <span className="text-xs text-secondary truncate flex-1">
+                  回复 {quotingMessage.sender_id === -1 ? 'System' : (quotingMessage.sender_id?.toString() === currentUserId ? '自己' : activeChatName || quotingMessage.sender_id)}: {quotingPreviewText}
+                </span>
+                <button onClick={() => setQuotingMessage(null)} className="ml-2 p-1 hover:bg-hover rounded-full">
+                  <X className="w-4 h-4 text-tertiary" />
+                </button>
+              </div>
+            )}
+            {/* Text Area */}
+            <textarea
+              ref={textareaRef}
+              className="flex-1 bg-transparent border-none outline-none resize-none text-primary text-base"
+              placeholder="Type a message..."
+              value={inputText}
+              onChange={(e) => setInputText(e.target.value)}
+              onKeyDown={handleKeyDown}
+              onContextMenu={(e) => {
+                 e.preventDefault();
+                 handleInputContextMenu(e);
+              }}
+            />
+
+            <ContextMenu
+              x={inputXPos}
+              y={inputYPos}
+              show={showInputMenu}
+              onClose={() => setShowInputMenu(false)}
+              items={inputMenuItems}
+            />
+
+            {/* Send Button */}
+            <div className="flex justify-end mt-2">
+              <button
+                onClick={handleSend}
+                disabled={!inputText.trim()}
+                className={`px-6 py-1.5 rounded text-[14px] font-medium transition-colors ${inputText.trim()
+                  ? 'bg-secondary hover:bg-hover text-success'
+                  : 'bg-secondary text-secondary border border-primary cursor-not-allowed'
+                  }`}
+              >
+                Send
+              </button>
+            </div>
+          </>
         )}
-        {/* Text Area */}
-        <textarea
-          ref={textareaRef}
-          className="flex-1 bg-transparent border-none outline-none resize-none text-primary text-base"
-          placeholder="Type a message..."
-          value={inputText}
-          onChange={(e) => setInputText(e.target.value)}
-          onKeyDown={handleKeyDown}
-          onContextMenu={(e) => {
-             e.preventDefault();
-             handleInputContextMenu(e);
-          }}
-        />
-
-        <ContextMenu
-          x={inputXPos}
-          y={inputYPos}
-          show={showInputMenu}
-          onClose={() => setShowInputMenu(false)}
-          items={inputMenuItems}
-        />
-
-        {/* Send Button */}
-        <div className="flex justify-end mt-2">
-          <button
-            onClick={handleSend}
-            disabled={!inputText.trim()}
-            className={`px-6 py-1.5 rounded text-[14px] font-medium transition-colors ${inputText.trim()
-              ? 'bg-secondary hover:bg-hover text-success'
-              : 'bg-secondary text-secondary border border-primary cursor-not-allowed'
-              }`}
-          >
-            Send
-          </button>
-        </div>
       </div>
     </div>
   );
