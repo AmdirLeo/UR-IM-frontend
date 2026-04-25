@@ -195,11 +195,13 @@ export const useChat = (currentUserId: number) => {
         const { msg_id, server_time } = res.data;
         const finalMessage = { ...optimisticMessage, msg_id, create_time: server_time };
 
-        // 4. 发送成功：把真实的消息加到 UI 中
+        // 1. 增加一个标记变量，判断是否被 WS 抢先了
+        let isDuplicate = false; 
+
         setMessagesMap(prev => {
           const conversationMessages = prev[conversationId] || [];
-          // 【核心修复】：如果 WebSocket 跑得比 HTTP 快，已经把消息推上来了，就不要重复添加！
           if (conversationMessages.some(m => m.msg_id === msg_id)) {
+            isDuplicate = true; // 发现重复！
             return prev;
           }
           return {
@@ -207,6 +209,9 @@ export const useChat = (currentUserId: number) => {
             [conversationId]: [...conversationMessages, finalMessage]
           };
         });
+
+        // 2. 【核心修复】：如果是重复消息，说明 WS 已经做过引用计数 +1 和会话更新了，直接退朝！
+        if (isDuplicate) return; 
 
         quotedMessagesMap.current.set(msg_id, finalMessage as LocalMessage);
 
@@ -284,9 +289,29 @@ export const useChat = (currentUserId: number) => {
         // Optimistically remove the message from local state
         setMessagesMap(prev => {
           const conversationMessages = prev[conversationId] || [];
+          
+          // 1. 揪出马上要被枪毙的消息，看看它有没有引用别人
+          const msgToDelete = conversationMessages.find(msg => msg.msg_id === msgId);
+          let updatedMessages = conversationMessages.filter(msg => msg.msg_id !== msgId);
+
+          // 2. 如果它引用了别人，帮别人把引用计数减 1
+          if (msgToDelete && msgToDelete.quote_msg_id) {
+             updatedMessages = updatedMessages.map(m =>
+               m.msg_id === msgToDelete.quote_msg_id
+                 ? { ...m, quote_num: Math.max(0, (m.quote_num || 0) - 1) }
+                 : m
+             );
+             
+             // 同步更新全局的引用字典
+             const quotedMsg = quotedMessagesMap.current.get(msgToDelete.quote_msg_id);
+             if (quotedMsg && quotedMsg.quote_num) {
+                quotedMsg.quote_num = Math.max(0, quotedMsg.quote_num - 1);
+             }
+          }
+
           return {
             ...prev,
-            [conversationId]: conversationMessages.filter(msg => msg.msg_id !== msgId)
+            [conversationId]: updatedMessages
           };
         });
         return true;

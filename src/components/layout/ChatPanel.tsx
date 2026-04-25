@@ -334,6 +334,14 @@ export const ChatPanel: React.FC<ChatPanelProps & { activeChatName?: string; act
     };
   }, [activeChatId, activeMessages, isLoadingHistory, hasMoreHistory, loadMessageHistory]);
 
+  let quotingPreviewText = quotingMessage?.msg_content || '';
+  if (quotingPreviewText.startsWith('{')) {
+    try {
+      const parsed = JSON.parse(quotingPreviewText);
+      quotingPreviewText = parsed.content || quotingPreviewText;
+    } catch (e) {}
+  }
+  
   return (
     <div className="flex-1 h-full bg-primary flex flex-col min-w-[400px] relative">
       {/* Header */}
@@ -449,7 +457,11 @@ export const ChatPanel: React.FC<ChatPanelProps & { activeChatName?: string; act
                   </div>
                 )}
 
-                <div ref={isThresholdNode ? observerTarget : null} className={`flex ${isMe ? 'justify-end' : 'justify-start'} mb-4 ${msg.isFailed ? 'opacity-50' : ''}`}>
+                <div 
+                  id={`msg-${msg.msg_id || msg.local_id}`} 
+                  ref={isThresholdNode ? observerTarget : null} 
+                  className={`flex ${isMe ? 'justify-end' : 'justify-start'} mb-4 ${msg.isFailed ? 'opacity-50' : ''}`}
+                >
                 {!isMe && (
                   <div className="flex flex-col items-center mr-3">
                     <span className="text-[10px] text-secondary mb-1 whitespace-nowrap overflow-hidden text-ellipsis max-w-[60px]">{activeChatName || msg.sender_id}</span>
@@ -598,7 +610,7 @@ export const ChatPanel: React.FC<ChatPanelProps & { activeChatName?: string; act
         {quotingMessage && (
           <div className="absolute top-[-40px] left-0 right-0 h-[40px] bg-secondary border-t border-primary flex items-center px-4 justify-between shadow-sm">
             <span className="text-xs text-secondary truncate flex-1">
-              回复 {quotingMessage.sender_id === -1 ? 'System' : (quotingMessage.sender_id?.toString() === currentUserId ? '自己' : activeChatName || quotingMessage.sender_id)}: {quotingMessage.msg_content}
+              回复 {quotingMessage.sender_id === -1 ? 'System' : (quotingMessage.sender_id?.toString() === currentUserId ? '自己' : activeChatName || quotingMessage.sender_id)}: {quotingPreviewText}
             </span>
             <button onClick={() => setQuotingMessage(null)} className="ml-2 p-1 hover:bg-hover rounded-full">
               <X className="w-4 h-4 text-tertiary" />
