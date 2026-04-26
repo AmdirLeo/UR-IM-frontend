@@ -6,6 +6,7 @@ import { formatAvatarUrl } from '../../utils/url';
 import { formatChatListTime } from '../../utils/timeFormat';
 import { useContextMenu } from '../common/ContextMenu/useContextMenu';
 import { ContextMenu, ContextMenuItem } from '../common/ContextMenu/ContextMenu';
+import { CreateGroupModal } from './CreateGroupModal';
 
 interface ChatListProps {
   activeChatId: number | null;
@@ -30,10 +31,11 @@ interface ChatItem {
 export const ChatList: React.FC<ChatListProps> = ({ activeChatId, onSelectChat, width, currentUserId }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const { friends } = useContactContext();
-  const { conversations, togglePinConversation, toggleMuteConversation } = useChatContext();
+  const { conversations, togglePinConversation, toggleMuteConversation, loadConversations } = useChatContext();
 
   const { xPos, yPos, showMenu, setShowMenu, handleContextMenu } = useContextMenu();
   const [contextMenuChatId, setContextMenuChatId] = useState<number | null>(null);
+  const [isCreateGroupModalOpen, setIsCreateGroupModalOpen] = useState(false);
 
   const handleRightClick = (e: React.MouseEvent, chatId: number) => {
     setContextMenuChatId(chatId);
@@ -149,10 +151,22 @@ export const ChatList: React.FC<ChatListProps> = ({ activeChatId, onSelectChat, 
             onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
-        <button className="w-7 h-7 bg-panel rounded flex items-center justify-center hover:bg-hover transition-colors shrink-0">
+        <button
+          className="w-7 h-7 bg-panel rounded flex items-center justify-center hover:bg-hover transition-colors shrink-0"
+          onClick={() => setIsCreateGroupModalOpen(true)}
+        >
           <Plus className="h-4 w-4 text-secondary" />
         </button>
       </div>
+
+      <CreateGroupModal
+        isOpen={isCreateGroupModalOpen}
+        onClose={() => setIsCreateGroupModalOpen(false)}
+        onSuccess={async (conversationId) => {
+          await loadConversations();
+          onSelectChat(conversationId);
+        }}
+      />
 
       {/* List */}
       <div className="flex-1 overflow-y-auto custom-scrollbar">
