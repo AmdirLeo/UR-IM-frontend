@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { X, Loader2, Users } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { X, Loader2, Users, Camera } from 'lucide-react';
 import { useContactContext } from '../../context/ContactContext';
 import { createGroup } from '../../api/group';
 import { formatAvatarUrl } from '../../utils/url';
@@ -10,23 +10,78 @@ interface CreateGroupModalProps {
   onSuccess: (conversationId: number) => void;
 }
 
+const fileToBase64 = (file: File): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = error => reject(error);
+  });
+};
+
 export const CreateGroupModal: React.FC<CreateGroupModalProps> = ({ isOpen, onClose, onSuccess }) => {
   const { friends } = useContactContext();
   const [groupName, setGroupName] = useState('');
   const [selectedFriends, setSelectedFriends] = useState<number[]>([]);
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!isOpen) {
       // Reset state when closed
       setGroupName('');
       setSelectedFriends([]);
+      setAvatarFile(null);
+      setAvatarPreview((prev) => {
+        if (prev) {
+          URL.revokeObjectURL(prev);
+        }
+        return null;
+      });
       setError('');
     }
   }, [isOpen]);
 
+  useEffect(() => {
+    // Cleanup object URL on unmount to prevent memory leaks
+    return () => {
+      if (avatarPreview) {
+        URL.revokeObjectURL(avatarPreview);
+      }
+    };
+  }, [avatarPreview]);
+
   if (!isOpen) return null;
+
+  const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setAvatarFile(file);
+      if (avatarPreview) {
+        URL.revokeObjectURL(avatarPreview);
+      }
+      const objectUrl = URL.createObjectURL(file);
+      setAvatarPreview(objectUrl);
+    }
+  };
+
+  const handleClearAvatar = (e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent opening the file picker
+    setAvatarFile(null);
+    setAvatarPreview((prev) => {
+        if (prev) {
+          URL.revokeObjectURL(prev);
+        }
+        return null;
+    });
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
 
   const handleFriendToggle = (friendId: number) => {
     setSelectedFriends((prev) => {
@@ -57,9 +112,21 @@ export const CreateGroupModal: React.FC<CreateGroupModalProps> = ({ isOpen, onCl
     setError('');
 
     try {
+      let avatarBase64: string | undefined;
+      if (avatarFile) {
+        try {
+          avatarBase64 = await fileToBase64(avatarFile);
+        } catch (e) {
+          setError('头像读取失败，请重试');
+          setLoading(false);
+          return;
+        }
+      }
+
       const response = await createGroup({
         name: groupName.trim(),
         user_ids: selectedFriends,
+        avatar: avatarBase64,
       });
 
       if (response.code === 200 && response.data?.conversation_id) {
@@ -68,8 +135,9 @@ export const CreateGroupModal: React.FC<CreateGroupModalProps> = ({ isOpen, onCl
       } else {
         setError(response.msg || '创建群聊失败');
       }
-    } catch (err: any) {
-      setError(err.response?.data?.msg || err.message || '创建群聊时发生错误');
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { msg?: string } }; message?: string };
+      setError(e.response?.data?.msg || e.message || '创建群聊时发生错误');
     } finally {
       setLoading(false);
     }
@@ -96,6 +164,46 @@ export const CreateGroupModal: React.FC<CreateGroupModalProps> = ({ isOpen, onCl
 
         {/* Content */}
         <div className="p-5 overflow-y-auto flex-1 custom-scrollbar">
+
+          {/* Avatar Selection */}
+          <div className="flex flex-col items-center mb-6 relative">
+            <input
+              type="file"
+              accept="image/*"
+              className="hidden"
+              ref={fileInputRef}
+              onChange={handleAvatarChange}
+            />
+            <div
+              className="w-20 h-20 rounded-full border-2 border-dashed border-gray-300 flex flex-col items-center justify-center cursor-pointer overflow-hidden bg-gray-50 hover:bg-gray-100 transition-colors relative group"
+              onClick={() => fileInputRef.current?.click()}
+            >
+              {avatarPreview ? (
+                <>
+                  <img src={avatarPreview} alt="Avatar Preview" className="w-full h-full object-cover" />
+                  <div className="absolute inset-0 bg-black bg-opacity-40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                    <Camera className="w-6 h-6 text-white" />
+                  </div>
+                </>
+              ) : (
+                <div className="flex flex-col items-center text-gray-400">
+                  <Camera className="w-6 h-6 mb-1" />
+                  <span className="text-[10px]">设置头像</span>
+                </div>
+              )}
+            </div>
+
+            {avatarPreview && (
+              <button
+                onClick={handleClearAvatar}
+                className="absolute top-0 right-[150px] p-1 bg-white border border-gray-200 rounded-full shadow-sm hover:bg-gray-100 transition-colors z-10"
+                title="清除头像"
+              >
+                <X className="w-3 h-3 text-gray-500" />
+              </button>
+            )}
+          </div>
+
           <div className="mb-4">
             <label className="block text-sm font-medium text-secondary mb-1">群聊名称</label>
             <input
