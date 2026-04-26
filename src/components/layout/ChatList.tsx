@@ -90,18 +90,18 @@ export const ChatList: React.FC<ChatListProps> = ({ activeChatId, onSelectChat, 
           if (matchedFriend) {
             // A. 好友优先
             chatName = matchedFriend.username;
-            chatAvatarUrl = matchedFriend.avatar_url;
+            chatAvatarUrl = matchedFriend.avatar_url || null;
           } else {
             // B. 临时会话/非好友兜底
             chatName = conv.name || `User ${targetId}`;
-            chatAvatarUrl = conv.avatar_url;
+            chatAvatarUrl = conv.avatar_url || null;
           }
         }
       } else if (conv.type === 'group') {
         // --- 【群聊逻辑】 ---
         // 严格使用 interface 中定义的 name 和 avatar_url
         chatName = conv.name || `群聊 ${conv.conversation_id}`;
-        chatAvatarUrl = conv.avatar_url;
+        chatAvatarUrl = conv.avatar_url || null;
       }
 
       // Safely parse JSON message content if applicable
