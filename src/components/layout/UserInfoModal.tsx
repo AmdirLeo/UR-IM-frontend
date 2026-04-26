@@ -15,6 +15,21 @@ export const UserInfoModal: React.FC<UserInfoModalProps> = ({ userId, isOpen, on
 
   useEffect(() => {
     if (isOpen && userId) {
+      if (userId < 0) {
+        setUserInfo({
+          user_id: userId,
+          username: userId === -1 ? "系统通知" : "群助手",
+          // 这里给系统账号分配专用的机器人头像
+          avatar_url: userId === -1 
+            ? "https://api.dicebear.com/7.x/bottts/svg?seed=System" 
+            : "https://api.dicebear.com/7.x/bottts/svg?seed=GroupBot",
+          // 为了不显示别人的邮箱，我们可以直接留空，下面的 UI 渲染时遇到空就会自动隐藏邮箱块
+          email: "" 
+        });
+        setLoading(false);
+        return; // 🛑 极其关键：拦截请求，直接返回！
+      }
+      
       const fetchInfo = async () => {
         setLoading(true);
         try {

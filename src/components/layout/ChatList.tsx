@@ -79,20 +79,29 @@ export const ChatList: React.FC<ChatListProps> = ({ activeChatId, onSelectChat, 
       let chatName = `Chat ${conv.conversation_id}`;
       let chatAvatarUrl: string | null = null;
 
-      // 1. Safely extract the target user's ID for single chats
-      const targetId = conv.target_id || conv.target_user_id;
-
-      // 2. Map against the friends list using the Target ID, NEVER the last_msg_sender_id
-      if (targetId && targetId !== parseInt(currentUserId, 10)) {
-        const matchedFriend = friends.find(f => f.user_id === targetId);
-        if (matchedFriend) {
-          chatName = matchedFriend.username;
-          chatAvatarUrl = matchedFriend.avatar_url;
+      // 严格根据类型进行分支处理
+      if (conv.type === 'private') {
+        // --- 【单聊逻辑】 ---
+        const targetId = conv.target_id || conv.target_user_id;
+        
+        if (targetId && targetId !== parseInt(currentUserId, 10)) {
+          const matchedFriend = friends.find(f => f.user_id === targetId);
+          
+          if (matchedFriend) {
+            // A. 好友优先
+            chatName = matchedFriend.username;
+            chatAvatarUrl = matchedFriend.avatar_url;
+          } else {
+            // B. 临时会话/非好友兜底
+            chatName = conv.name || `User ${targetId}`;
+            chatAvatarUrl = conv.avatar_url;
+          }
         }
-      } else if (conv.name) {
-        // Fallback: If it's a group chat or the backend provides the name directly
-        chatName = conv.name;
-        chatAvatarUrl = conv.avatar_url || null;
+      } else if (conv.type === 'group') {
+        // --- 【群聊逻辑】 ---
+        // 严格使用 interface 中定义的 name 和 avatar_url
+        chatName = conv.name || `群聊 ${conv.conversation_id}`;
+        chatAvatarUrl = conv.avatar_url;
       }
 
       // Safely parse JSON message content if applicable

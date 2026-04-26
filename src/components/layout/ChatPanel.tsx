@@ -468,7 +468,7 @@ export const ChatPanel: React.FC<ChatPanelProps & { activeChatName?: string; act
             className="w-5 h-5 ml-2 hover:text-primary cursor-pointer"
             onClick={(e) => {
                if (headerMenuItems.length > 0) {
-                 handleHeaderContextMenu(e as any);
+                 handleHeaderContextMenu(e as unknown as React.MouseEvent);
                }
             }}
           />
@@ -592,17 +592,41 @@ export const ChatPanel: React.FC<ChatPanelProps & { activeChatName?: string; act
                 >
                 {!isMe && (
                   <div className="flex flex-col items-center mr-3">
-                    <span className="text-[10px] text-secondary mb-1 whitespace-nowrap overflow-hidden text-ellipsis max-w-[60px]">{activeChatName || msg.sender_id}</span>
+                    {/* 1. 渲染名字 */}
+                    <span className="text-[10px] text-secondary mb-1 whitespace-nowrap overflow-hidden text-ellipsis max-w-[60px]">
+                      {msg.sender_id === -1 ? "系统通知" :
+                       msg.sender_id === -2 ? "群助手" :
+                       (isGroupChat ? 
+                         (friends.find(f => f.user_id === msg.sender_id)?.username || `User ${msg.sender_id}`) 
+                         : (activeChatName || msg.sender_id)
+                       )}
+                    </span>
+
+                    {/* 2. 渲染头像 */}
                     <div
                       className="w-9 h-9 bg-gray-300 rounded flex-shrink-0 flex items-center justify-center overflow-hidden cursor-pointer hover:opacity-90 transition-opacity"
                       onClick={() => handleAvatarClick(msg.sender_id)}
                     >
                       {msg.sender_id === -1 ? (
                          <img src="https://api.dicebear.com/7.x/bottts/svg?seed=System" alt="system" className="w-full h-full object-cover" />
+                      ) : msg.sender_id === -2 ? (
+                         <img src="https://api.dicebear.com/7.x/bottts/svg?seed=GroupBot" alt="bot" className="w-full h-full object-cover" />
+                      ) : isGroupChat ? (
+                         // --- 【群聊逻辑】：去好友列表找这个发送者的真实头像 ---
+                         (() => {
+                           const senderFriend = friends.find(f => f.user_id === msg.sender_id);
+                           if (senderFriend && senderFriend.avatar_url) {
+                             return <img src={formatAvatarUrl(senderFriend.avatar_url)!} alt="avatar" className="w-full h-full object-cover" />
+                           }
+                           // 如果群友没头像或不是好友，用名字首字母兜底
+                           const fallbackName = senderFriend ? senderFriend.username : `U`;
+                           return <span className="text-gray-500 font-bold text-lg opacity-50">{fallbackName.charAt(0).toUpperCase()}</span>
+                         })()
                       ) : activeChatAvatar ? (
+                         // --- 【单聊逻辑】：使用传进来的对方头像 ---
                          <img src={formatAvatarUrl(activeChatAvatar)!} alt="avatar" className="w-full h-full object-cover" />
                       ) : (
-                        <span className="text-gray-500 font-bold opacity-50">{activeChatName?.charAt(0) || '?'}</span>
+                        <span className="text-gray-500 font-bold text-lg opacity-50">{activeChatName?.charAt(0) || '?'}</span>
                       )}
                     </div>
                   </div>
