@@ -559,5 +559,6 @@ export const useChat = (currentUserId: number) => {
     deleteChatMessage,
     togglePinConversation,
     toggleMuteConversation,
+    setCurrentActiveChatId,
   };
 };
