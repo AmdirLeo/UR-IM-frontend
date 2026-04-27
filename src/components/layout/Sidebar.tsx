@@ -23,7 +23,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const logoutRef = useRef<HTMLDivElement>(null);
   const userContext = useContext(UserContext);
   const { forceRefresh } = useContactContext();
-  const { conversations } = useChatContext();
+  const { conversations, friendRequests } = useChatContext();
   const avatarSrc = userContext?.userInfo?.avatar_url;
 
   // Calculate total unread count excluding muted conversations
@@ -79,12 +79,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </div>
 
         <div
-          className="cursor-pointer group flex flex-col items-center w-full"
+          className="relative cursor-pointer group flex flex-col items-center w-full"
           onClick={() => onNavigate('contacts')}
           onDoubleClick={() => forceRefresh()}
           title="Contacts"
         >
           <Users className={`w-6 h-6 transition-colors ${activeView === 'contacts' ? 'text-[var(--sidebar-active-text)]' : 'text-[var(--sidebar-text)] group-hover:text-[var(--sidebar-hover-text)]'}`} />
+          {friendRequests && friendRequests.length > 0 && (
+            <div className="absolute -top-1 right-2 bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full border-2 border-primary">
+              {friendRequests.length > 99 ? '99+' : friendRequests.length}
+            </div>
+          )}
         </div>
       </div>
 

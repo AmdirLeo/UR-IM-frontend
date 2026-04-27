@@ -21,7 +21,8 @@ export interface NewChatMessage {
     msg_id: number;
     sender_id: number;
     msg_type: string;  // 例如 'friend_apply'
-    content: string;   // JSON 字符串
+    content: string;   // 文本或者 JSON 字符串
+    extra?: any;       // 附加数据，例如卡片信息
     create_time: string;
     quote_message_id?: number | null;
   };
@@ -157,16 +158,20 @@ export const useWebSocket = (token: string | null): UseWebSocketReturn => {
 
           // 专门处理来自系统（sender_id === -1）的消息
           if (innerData?.sender_id === -1) {
-            // 1. 先尝试解析 JSON 内容，看看信封里面装的是什么
-            let parsedContent: any = {};
-            try {
-              parsedContent = JSON.parse(innerData.content);
-            } catch (e) {
-              console.error('Failed to parse system message content');
-            }
-
             const msgType = innerData.msg_type; // 'card' 或者是 'notify'
-            const extra = parsedContent.extra || {};
+
+            // 兼容直接在 extra 字段下发，或者在 content 中 stringify 的情况
+            let extra = innerData.extra || {};
+            if (Object.keys(extra).length === 0 && innerData.content) {
+              try {
+                const parsedContent = JSON.parse(innerData.content);
+                if (parsedContent.extra) {
+                  extra = parsedContent.extra;
+                }
+              } catch (e) {
+                // Not valid JSON, which is expected for plain text content
+              }
+            }
 
             // 🌟 情况 A：这确实是一条【好友申请】
             if (msgType === 'card' && extra.card_type === 'friend_apply') {
