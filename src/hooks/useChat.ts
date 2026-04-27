@@ -15,6 +15,11 @@ export interface LocalMessage extends Partial<HistoryMessageItem> {
 }
 
 export const useChat = (currentUserId: number) => {
+  const activeChatIdRef = useRef<number | null>(null);
+  const setCurrentActiveChatId = useCallback((id: number | null) => {
+    activeChatIdRef.current = id;
+  }, []);
+
   const processedQuoteIncrements = useRef<Set<number>>(new Set());
   const incrementQuoteCount = useCallback((newMsgId: number, targetMsgId: number, conversationId: number) => {
     // 如果这条新消息已经贡献过计数了，直接返回
@@ -504,20 +509,29 @@ export const useChat = (currentUserId: number) => {
 
       return prev.map(conv => {
         if (conv.conversation_id === convId) {
-          const isOwnMessage = newMsg.sender_id === currentUserId;
+          const isOwnMessage = newMsg.sender_id === parseInt(currentUserId as any, 10);
+          
+          // 👉 【核心判断】：看看发来消息的这个会话，是不是我们当前正在看的会话？
+          const isCurrentActiveChat = activeChatIdRef.current === convId;
+          
+          // 如果不是我自己发的，且我没在看这个会话，才增加未读数！
+          const shouldAddUnread = !isOwnMessage && !isCurrentActiveChat; 
+
           return {
             ...conv,
             last_msg_content: newMsg.msg_content,
             last_msg_send_time: newMsg.create_time,
             last_msg_sender_id: newMsg.sender_id,
             last_msg_type: newMsg.msg_type,
-            unread_count: isOwnMessage ? conv.unread_count : conv.unread_count + 1
+
+            // 3. 应用判断逻辑
+            unread_count: shouldAddUnread ? conv.unread_count + 1 : conv.unread_count
           };
         }
         return conv;
       });
     });
-  }, [incrementQuoteCount, loadConversations]);
+  }, [incrementQuoteCount, loadConversations, currentUserId]);
 
   /**
    * BUSINESS ADVICE FOR WEBSOCKET INTEGRATION:
@@ -545,5 +559,6 @@ export const useChat = (currentUserId: number) => {
     deleteChatMessage,
     togglePinConversation,
     toggleMuteConversation,
+    setCurrentActiveChatId,
   };
 };

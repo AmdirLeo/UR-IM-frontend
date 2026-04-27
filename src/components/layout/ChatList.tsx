@@ -6,6 +6,7 @@ import { formatAvatarUrl } from '../../utils/url';
 import { formatChatListTime } from '../../utils/timeFormat';
 import { useContextMenu } from '../common/ContextMenu/useContextMenu';
 import { ContextMenu, ContextMenuItem } from '../common/ContextMenu/ContextMenu';
+import { CreateGroupModal } from './CreateGroupModal';
 
 interface ChatListProps {
   activeChatId: number | null;
@@ -30,10 +31,11 @@ interface ChatItem {
 export const ChatList: React.FC<ChatListProps> = ({ activeChatId, onSelectChat, width, currentUserId }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const { friends } = useContactContext();
-  const { conversations, togglePinConversation, toggleMuteConversation } = useChatContext();
+  const { conversations, togglePinConversation, toggleMuteConversation, loadConversations } = useChatContext();
 
   const { xPos, yPos, showMenu, setShowMenu, handleContextMenu } = useContextMenu();
   const [contextMenuChatId, setContextMenuChatId] = useState<number | null>(null);
+  const [isCreateGroupModalOpen, setIsCreateGroupModalOpen] = useState(false);
 
   const handleRightClick = (e: React.MouseEvent, chatId: number) => {
     setContextMenuChatId(chatId);
@@ -77,19 +79,28 @@ export const ChatList: React.FC<ChatListProps> = ({ activeChatId, onSelectChat, 
       let chatName = `Chat ${conv.conversation_id}`;
       let chatAvatarUrl: string | null = null;
 
-      // 1. Safely extract the target user's ID for single chats
-      const targetId = conv.target_id || conv.target_user_id;
-
-      // 2. Map against the friends list using the Target ID, NEVER the last_msg_sender_id
-      if (targetId && targetId !== parseInt(currentUserId, 10)) {
-        const matchedFriend = friends.find(f => f.user_id === targetId);
-        if (matchedFriend) {
-          chatName = matchedFriend.username;
-          chatAvatarUrl = matchedFriend.avatar_url;
+      // 严格根据类型进行分支处理
+      if (conv.type === 'private') {
+        // --- 【单聊逻辑】 ---
+        const targetId = conv.target_id || conv.target_user_id;
+        
+        if (targetId && targetId !== parseInt(currentUserId, 10)) {
+          const matchedFriend = friends.find(f => f.user_id === targetId);
+          
+          if (matchedFriend) {
+            // A. 好友优先
+            chatName = matchedFriend.username;
+            chatAvatarUrl = matchedFriend.avatar_url || null;
+          } else {
+            // B. 临时会话/非好友兜底
+            chatName = conv.name || `User ${targetId}`;
+            chatAvatarUrl = conv.avatar_url || null;
+          }
         }
-      } else if (conv.name) {
-        // Fallback: If it's a group chat or the backend provides the name directly
-        chatName = conv.name;
+      } else if (conv.type === 'group') {
+        // --- 【群聊逻辑】 ---
+        // 严格使用 interface 中定义的 name 和 avatar_url
+        chatName = conv.name || `群聊 ${conv.conversation_id}`;
         chatAvatarUrl = conv.avatar_url || null;
       }
 
@@ -149,10 +160,22 @@ export const ChatList: React.FC<ChatListProps> = ({ activeChatId, onSelectChat, 
             onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
-        <button className="w-7 h-7 bg-panel rounded flex items-center justify-center hover:bg-hover transition-colors shrink-0">
+        <button
+          className="w-7 h-7 bg-panel rounded flex items-center justify-center hover:bg-hover transition-colors shrink-0"
+          onClick={() => setIsCreateGroupModalOpen(true)}
+        >
           <Plus className="h-4 w-4 text-secondary" />
         </button>
       </div>
+
+      <CreateGroupModal
+        isOpen={isCreateGroupModalOpen}
+        onClose={() => setIsCreateGroupModalOpen(false)}
+        onSuccess={async (conversationId) => {
+          await loadConversations();
+          onSelectChat(conversationId);
+        }}
+      />
 
       {/* List */}
       <div className="flex-1 overflow-y-auto custom-scrollbar">

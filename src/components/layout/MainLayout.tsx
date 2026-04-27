@@ -156,18 +156,23 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ currentUserId, username,
   if (activeChatId) {
     const activeConv = conversations.find(c => c.conversation_id === activeChatId);
     if (activeConv) {
-      const targetId = activeConv.target_id || activeConv.target_user_id;
-      if (activeConv.type === 'private' && targetId && targetId !== parseInt(currentUserId, 10)) {
-        const matchedFriend = friends.find(f => f.user_id === targetId);
-        if (matchedFriend) {
-          activeChatName = matchedFriend.username;
-          activeChatAvatar = matchedFriend.avatar_url;
-        } else if (activeConv.name) {
-          activeChatName = activeConv.name;
-          activeChatAvatar = activeConv.avatar_url || null;
+      if (activeConv.type === 'private') {
+        // --- 【单聊逻辑】 ---
+        const targetId = activeConv.target_id || activeConv.target_user_id;
+        if (targetId && targetId !== parseInt(currentUserId, 10)) {
+          const matchedFriend = friends.find(f => f.user_id === targetId);
+          if (matchedFriend) {
+            activeChatName = matchedFriend.username;
+            activeChatAvatar = matchedFriend.avatar_url || null;
+          } else {
+            activeChatName = activeConv.name || `User ${targetId}`;
+            activeChatAvatar = activeConv.avatar_url || null;
+          }
         }
-      } else if (activeConv.name) {
-        activeChatName = activeConv.name;
+      } else if (activeConv.type === 'group') {
+        // --- 【群聊逻辑】 ---
+        // 严格区分群聊，即使后端暂未返回群名称，也兜底显示为 "群聊 xx"
+        activeChatName = activeConv.name || `群聊 ${activeConv.conversation_id}`;
         activeChatAvatar = activeConv.avatar_url || null;
       }
     }
