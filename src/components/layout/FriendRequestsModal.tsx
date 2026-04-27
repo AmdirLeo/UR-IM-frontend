@@ -20,14 +20,18 @@ const FriendRequestItem = ({
   setError: (err: string) => void;
 }) => {
   // 提取基础数据
-  let extra: Record<string, any> = {};
-  try {
-    const parsedContent = typeof req.data.content === 'string' 
-      ? JSON.parse(req.data.content) 
-      : (req.data.content || {});
-    extra = parsedContent.extra || {};
-  } catch (e) {
-    console.warn("Failed to parse friend request content:", e);
+  let extra: Record<string, any> = req.data.extra || {};
+  if (Object.keys(extra).length === 0 && req.data.content) {
+    try {
+      const parsedContent = typeof req.data.content === 'string'
+        ? JSON.parse(req.data.content)
+        : (req.data.content || {});
+      if (parsedContent.extra) {
+        extra = parsedContent.extra;
+      }
+    } catch (e) {
+      // 忽略纯文本 content 的 parse 错误
+    }
   }
 
   const msgId = req.data.msg_id;

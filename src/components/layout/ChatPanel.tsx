@@ -113,7 +113,6 @@ export const ChatPanel: React.FC<ChatPanelProps & { activeChatName?: string; act
   const msgMenuItems: ContextMenuItem[] = React.useMemo(() => {
     if (!activeContextMenuMsg) return [];
 
-    const isMe = activeContextMenuMsg.sender_id?.toString() === currentUserId;
     const items: ContextMenuItem[] = [
       {
         label: '引用',
@@ -122,21 +121,19 @@ export const ChatPanel: React.FC<ChatPanelProps & { activeChatName?: string; act
       }
     ];
 
-    if (isMe) {
-      items.push({
-        label: '删除',
-        icon: <Trash2 className="w-4 h-4" />,
-        danger: true,
-        onClick: () => {
-          if (contextMenuMsgId) {
-            deleteChatMessage(activeChatId, contextMenuMsgId);
-          }
+    items.push({
+      label: '删除',
+      icon: <Trash2 className="w-4 h-4" />,
+      danger: true,
+      onClick: () => {
+        if (contextMenuMsgId) {
+          deleteChatMessage(activeChatId, contextMenuMsgId);
         }
-      });
-    }
+      }
+    });
 
     return items;
-  }, [activeContextMenuMsg, currentUserId, contextMenuMsgId, deleteChatMessage, activeChatId]);
+  }, [activeContextMenuMsg, contextMenuMsgId, deleteChatMessage, activeChatId]);
 
 
   const handleAvatarClick = (userId: number) => {
@@ -153,18 +150,32 @@ export const ChatPanel: React.FC<ChatPanelProps & { activeChatName?: string; act
         if (textareaRef.current) {
           const start = textareaRef.current.selectionStart;
           const end = textareaRef.current.selectionEnd;
-          const newText = inputText.substring(0, start) + text + inputText.substring(end);
+          const availableSpace = 500 - (inputText.length - (end - start));
+          let textToInsert = text;
+          if (textToInsert.length > availableSpace) {
+            alert('最多只能输入500个字符，超出部分已被截断。');
+            textToInsert = textToInsert.substring(0, availableSpace);
+          }
+          const newText = inputText.substring(0, start) + textToInsert + inputText.substring(end);
           setInputText(newText);
 
           // Reset cursor position after insertion
           setTimeout(() => {
             if (textareaRef.current) {
-              textareaRef.current.selectionStart = textareaRef.current.selectionEnd = start + text.length;
+              const newPos = Math.min(start + textToInsert.length, 500);
+              textareaRef.current.selectionStart = textareaRef.current.selectionEnd = newPos;
               textareaRef.current.focus();
             }
           }, 0);
         } else {
-          setInputText(prev => prev + text);
+          const availableSpace = 500 - inputText.length;
+          let textToInsert = text;
+          if (textToInsert.length > availableSpace) {
+            alert('最多只能输入500个字符，超出部分已被截断。');
+            textToInsert = textToInsert.substring(0, availableSpace);
+          }
+          const newText = inputText + textToInsert;
+          setInputText(newText);
         }
       }
     } catch (err) {
@@ -420,7 +431,7 @@ export const ChatPanel: React.FC<ChatPanelProps & { activeChatName?: string; act
           currentHasMore = olderData.length === 30;
           setHasMoreHistory(currentHasMore);
 
-          found = olderData.some((m: any) => m.msg_id === targetMsgId);
+          found = olderData.some((m: LocalMessage) => m.msg_id === targetMsgId);
 
           // ⚠️ 关键点：给 React 状态更新和 DOM 重新渲染留出足够的时间
           await new Promise(resolve => setTimeout(resolve, 150));
@@ -445,7 +456,9 @@ export const ChatPanel: React.FC<ChatPanelProps & { activeChatName?: string; act
     try {
       const parsed = JSON.parse(quotingPreviewText);
       quotingPreviewText = parsed.content || quotingPreviewText;
-    } catch (e) {}
+    } catch (e) {
+      /* ignore */
+    }
   }
 
   return (
@@ -657,7 +670,7 @@ export const ChatPanel: React.FC<ChatPanelProps & { activeChatName?: string; act
                             const parsed = JSON.parse(qContent);
                             qContent = parsed.content || qContent;
                           } catch (e) {
-                            // Ignored intentionally
+                            /* Ignored intentionally */
                           }
                         }
                         return `${quotedMsg.sender_id === Number(currentUserId) ? '我' : (activeChatName || quotedMsg.sender_id)}: ${qContent}`;
@@ -679,7 +692,7 @@ export const ChatPanel: React.FC<ChatPanelProps & { activeChatName?: string; act
                   {msg.isSending && <span className="absolute bottom-[-15px] right-0 text-[10px] text-tertiary">Sending...</span>}
                   {msg.isFailed && (
                     <button
-                      onClick={() => sendMessage(activeChatId, msg.msg_content, msg.msg_type as any, msg.quote_msg_id, msg.local_id)}
+                      onClick={() => sendMessage(activeChatId, msg.msg_content, msg.msg_type as "text" | "image" | "card" | "notify" | undefined, msg.quote_msg_id, msg.local_id)}
                       className="absolute top-1/2 -translate-y-1/2 left-[-28px] p-1 rounded-full bg-white dark:bg-gray-800 shadow hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer transition-colors group"
                       title="发送失败，点击重发"
                     >
@@ -769,12 +782,22 @@ export const ChatPanel: React.FC<ChatPanelProps & { activeChatName?: string; act
               ref={textareaRef}
               className="flex-1 bg-transparent border-none outline-none resize-none text-primary text-base"
               placeholder="Type a message..."
+              maxLength={500}
               value={inputText}
               onChange={(e) => setInputText(e.target.value)}
+              onPaste={(e) => {
+                const text = e.clipboardData.getData('text');
+                const start = textareaRef.current?.selectionStart || 0;
+                const end = textareaRef.current?.selectionEnd || 0;
+                const newLength = inputText.length - (end - start) + text.length;
+                if (newLength > 500) {
+                  alert('最多只能输入500个字符，超出部分已被截断。');
+                }
+              }}
               onKeyDown={handleKeyDown}
               onContextMenu={(e) => {
                  e.preventDefault();
-                 handleInputContextMenu(e);
+                 handleInputContextMenu(e as unknown as React.MouseEvent);
               }}
             />
 
@@ -787,10 +810,13 @@ export const ChatPanel: React.FC<ChatPanelProps & { activeChatName?: string; act
             />
 
             {/* Send Button */}
-            <div className="flex justify-end mt-2">
+            <div className="flex justify-between items-center mt-2">
+              <div className={`text-xs ${inputText.length >= 500 ? 'text-danger' : 'text-secondary'}`}>
+                {inputText.length}/500
+              </div>
               <button
                 onClick={handleSend}
-                disabled={!inputText.trim()}
+                disabled={!inputText.trim() || inputText.length > 500}
                 className={`px-6 py-1.5 rounded text-[14px] font-medium transition-colors ${inputText.trim()
                   ? 'bg-secondary hover:bg-hover text-success'
                   : 'bg-secondary text-secondary border border-primary cursor-not-allowed'

@@ -179,16 +179,26 @@ export const ChatList: React.FC<ChatListProps> = ({ activeChatId, onSelectChat, 
 
       {/* List */}
       <div className="flex-1 overflow-y-auto custom-scrollbar">
-        {filteredChats.map((chat) => (
-          <div
-            key={chat.id}
-            onClick={() => onSelectChat(chat.id)}
-            onContextMenu={(e) => handleRightClick(e, chat.id)}
-            className={`flex items-center px-4 py-3 cursor-pointer ${activeChatId === chat.id
-              ? 'bg-active'
-              : 'hover:bg-hover dark:hover:bg-hover'
-              }`}
-          >
+        {filteredChats.map((chat, index) => {
+          // Find the index of the first unpinned chat
+          const firstUnpinnedIndex = filteredChats.findIndex(c => !c.pinned);
+          const showDivider = firstUnpinnedIndex > 0 && index === firstUnpinnedIndex;
+
+          return (
+            <React.Fragment key={chat.id}>
+              {showDivider && (
+                <div className="flex items-center px-4 py-1.5 bg-panel border-t border-b border-primary">
+                  <span className="text-xs text-tertiary">Muted conversations</span>
+                </div>
+              )}
+              <div
+                onClick={() => onSelectChat(chat.id)}
+                onContextMenu={(e) => handleRightClick(e, chat.id)}
+                className={`flex items-center px-4 py-3 cursor-pointer ${activeChatId === chat.id
+                  ? 'bg-active'
+                  : 'hover:bg-hover dark:hover:bg-hover'
+                  }`}
+              >
             {/* Avatar */}
             <div className={`w-10 h-10 rounded overflow-hidden flex-shrink-0 mr-3 ${chat.avatarColor}`}>
               {chat.avatarUrl && formatAvatarUrl(chat.avatarUrl) ? (
@@ -214,15 +224,21 @@ export const ChatList: React.FC<ChatListProps> = ({ activeChatId, onSelectChat, 
               <div className="text-xs text-secondary truncate flex items-center justify-between">
                 <span className="truncate w-full pr-2">{chat.lastMessage || '[No messages yet]'}</span>
                 {chat.unread > 0 && (
-                  <span className="bg-red-500 text-white text-xs font-bold px-1.5 py-0.5 rounded-full shrink-0 ml-2">
-                    {chat.unread}
-                  </span>
+                  chat.isMuted ? (
+                    <div className="w-2.5 h-2.5 bg-red-500 rounded-full shrink-0 ml-2" />
+                  ) : (
+                    <span className="bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full shrink-0 ml-2">
+                      {chat.unread > 99 ? '99+' : chat.unread}
+                    </span>
+                  )
                 )}
                 {chat.isMuted && <BellOff className="h-3 w-3 text-tertiary shrink-0 ml-1" />}
               </div>
             </div>
           </div>
-        ))}
+            </React.Fragment>
+          );
+        })}
       </div>
       <ContextMenu
         x={xPos}
