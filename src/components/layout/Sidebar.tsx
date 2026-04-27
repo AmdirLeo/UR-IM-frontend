@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect, useContext } from 'react';
 import { User, MessageCircle, Users, Settings, LogOut } from 'lucide-react';
 import { UserContext } from '../../context/UserContext';
 import { useContactContext } from '../../context/ContactContext';
+import { useChatContext } from '../../context/ChatContext';
 
 export type ViewMode = 'messages' | 'contacts' | 'profile';
 
@@ -22,7 +23,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const logoutRef = useRef<HTMLDivElement>(null);
   const userContext = useContext(UserContext);
   const { forceRefresh } = useContactContext();
+  const { conversations } = useChatContext();
   const avatarSrc = userContext?.userInfo?.avatar_url;
+
+  // Calculate total unread count excluding muted conversations
+  const totalUnreadCount = conversations.reduce((total, conv) => {
+    if (!conv.muted) {
+      return total + (conv.unread_count || 0);
+    }
+    return total;
+  }, 0);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -61,11 +71,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
           title="Messages"
         >
           <MessageCircle className={`w-6 h-6 transition-colors ${activeView === 'messages' ? 'text-[var(--sidebar-active-text)]' : 'text-[var(--sidebar-text)] group-hover:text-[var(--sidebar-hover-text)]'}`} />
-          {/* Badge
-          <div className="absolute -top-1 right-2 bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full border-2 border-primary">
-            6
-          </div>
-          */}
+          {totalUnreadCount > 0 && (
+            <div className="absolute -top-1 right-2 bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full border-2 border-primary">
+              {totalUnreadCount > 99 ? '99+' : totalUnreadCount}
+            </div>
+          )}
         </div>
 
         <div
