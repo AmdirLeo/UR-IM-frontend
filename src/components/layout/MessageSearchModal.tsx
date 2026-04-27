@@ -19,6 +19,8 @@ export const MessageSearchModal: React.FC<MessageSearchModalProps> = ({ conversa
   const [endDate, setEndDate] = useState('');
   const [senderId, setSenderId] = useState('');
 
+  const [error, setError] = useState('');
+
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState<SearchMessageItem[]>([]);
   const [hasSearched, setHasSearched] = useState(false);
@@ -55,6 +57,7 @@ export const MessageSearchModal: React.FC<MessageSearchModalProps> = ({ conversa
       setSenderId('');
       setResults([]);
       setHasSearched(false);
+      setError('');
     }
   }, [isOpen]);
 
@@ -62,6 +65,15 @@ export const MessageSearchModal: React.FC<MessageSearchModalProps> = ({ conversa
     if (e) e.preventDefault();
     if (!conversationId) return;
     
+    setError('');
+
+    if (startDate && endDate) {
+      if (new Date(endDate) < new Date(startDate)) {
+        setError('结束日期不能早于开始日期！');
+        return; // 🛑 拦截请求，直接退出
+      }
+    }
+
     setLoading(true);
     setHasSearched(true);
 
@@ -179,6 +191,13 @@ export const MessageSearchModal: React.FC<MessageSearchModalProps> = ({ conversa
                 {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Search"}
               </button>
             </div>
+
+            {/* 👇 5. 在这里渲染错误提示信息 */}
+            {error && (
+              <div className="text-red-500 text-sm mt-2 pl-1 font-medium">
+                * {error}
+              </div>
+            )}
           </form>
         </div>
 
