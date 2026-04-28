@@ -188,7 +188,7 @@ export const ChatList: React.FC<ChatListProps> = ({ activeChatId, onSelectChat, 
             <React.Fragment key={chat.id}>
               {showDivider && (
                 <div className="flex items-center px-4 py-1.5 bg-panel border-t border-b border-primary">
-                  <span className="text-xs text-tertiary">Muted conversations</span>
+                  <span className="text-xs text-tertiary">Pinned conversations</span>
                 </div>
               )}
               <div

@@ -678,7 +678,7 @@ export const ChatPanel: React.FC<ChatPanelProps & { activeChatName?: string; act
                     </div>
                   )}
 
-                  <p className="text-primary text-base leading-relaxed whitespace-pre-wrap word-break">
+                  <p className="text-primary text-base leading-relaxed whitespace-pre-wrap break-words">
                     {parsedContent}
                   </p>
 

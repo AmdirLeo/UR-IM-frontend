@@ -382,38 +382,61 @@ export const useChat = (currentUserId: number) => {
 
           // 2. 如果它引用了别人，帮别人把引用计数减 1
           if (msgToDelete && msgToDelete.quote_msg_id) {
+             const targetQuoteId = msgToDelete.quote_msg_id;
+
              updatedMessages = updatedMessages.map(m =>
-               m.msg_id === msgToDelete.quote_msg_id
+               m.msg_id === targetQuoteId
                  ? { ...m, quote_num: Math.max(0, (m.quote_num || 0) - 1) }
                  : m
              );
              
              // 同步更新全局的引用字典
-             if (msgToDelete && msgToDelete.quote_msg_id) {
-                const targetQuoteId = msgToDelete.quote_msg_id;
-                
-                updatedMessages = updatedMessages.map(m =>
-                  m.msg_id === targetQuoteId
-                    ? { ...m, quote_num: Math.max(0, (m.quote_num || 0) - 1) }
-                    : m
-                );
-                
-                // 使用 prev 函数式更新，不依赖外部的 quotedMessagesMap，并保持对象不可变
-                setQuotedMessagesMap(prevDict => {
-                   const qMsg = prevDict[targetQuoteId];
-                   if (qMsg && qMsg.quote_num) {
-                      return {
-                         ...prevDict,
-                         [targetQuoteId]: {
-                            ...qMsg,
-                            quote_num: Math.max(0, qMsg.quote_num - 1)
-                         }
-                      };
-                   }
-                   return prevDict;
-                });
-             }
+             // 使用 prev 函数式更新，不依赖外部的 quotedMessagesMap，并保持对象不可变
+             setQuotedMessagesMap(prevDict => {
+                const qMsg = prevDict[targetQuoteId];
+                if (qMsg && qMsg.quote_num) {
+                   return {
+                      ...prevDict,
+                      [targetQuoteId]: {
+                         ...qMsg,
+                         quote_num: Math.max(0, qMsg.quote_num - 1)
+                      }
+                   };
+                }
+                return prevDict;
+             });
           }
+
+          // 3. Update the conversations' last message if we just deleted the latest one
+          setConversations(prevConvs => {
+            return prevConvs.map(conv => {
+              if (conv.conversation_id === conversationId) {
+                if (conv.last_msg_id === msgId || conv.last_msg_content === msgToDelete?.msg_content) {
+                  const newLastMsg = updatedMessages[updatedMessages.length - 1];
+                  if (newLastMsg) {
+                    return {
+                      ...conv,
+                      last_msg_id: newLastMsg.msg_id,
+                      last_msg_content: newLastMsg.msg_content,
+                      last_msg_send_time: newLastMsg.create_time,
+                      last_msg_sender_id: newLastMsg.sender_id,
+                      last_msg_type: newLastMsg.msg_type,
+                    };
+                  } else {
+                    return {
+                      ...conv,
+                      last_msg_id: undefined,
+                      last_msg_content: '',
+                      last_msg_send_time: undefined,
+                      last_msg_sender_id: undefined,
+                      last_msg_type: undefined,
+                    };
+                  }
+                }
+              }
+              return conv;
+            });
+          });
 
           return {
             ...prev,
