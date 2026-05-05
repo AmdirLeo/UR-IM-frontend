@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { encryptPassword } from './utils/crypto';
 
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL,
@@ -40,7 +41,11 @@ export const sendRegisterEmail = async (email: string) => {
 };
 
 export const registerUser = async (data: RegisterData) => {
-  const response = await api.post('/user/register', data);
+  const payload = { ...data };
+  if (payload.password) {
+    payload.password = encryptPassword(payload.password);
+  }
+  const response = await api.post('/user/register', payload);
   return response.data;
 };
 
@@ -50,12 +55,20 @@ export const sendForgetPasswordEmail = async (email: string) => {
 };
 
 export const setForgetPassword = async (data: Omit<RegisterData, 'username'>) => {
-  const response = await api.post('/user/register/forgetpswdset', data);
+  const payload = { ...data };
+  if (payload.password) {
+    payload.password = encryptPassword(payload.password);
+  }
+  const response = await api.post('/user/register/forgetpswdset', payload);
   return response.data;
 };
 
 export const loginUser = async (data: LoginData) => {
-  const response = await api.post('/user/login', data);
+  const payload = { ...data };
+  if (payload.password) {
+    payload.password = encryptPassword(payload.password);
+  }
+  const response = await api.post('/user/login', payload);
   return response.data;
 };
 
