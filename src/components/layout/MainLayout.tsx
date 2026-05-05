@@ -166,13 +166,13 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ currentUserId, username,
             activeChatAvatar = matchedFriend.avatar_url || null;
           } else {
             activeChatName = activeConv.name || `User ${targetId}`;
-            activeChatAvatar = activeConv.avatar_url || null;
+            activeChatAvatar = activeConv.avatar_url || (activeConv as any).conversation_avatar || null;
           }
         }
       } else if (activeConv.type === 'group') {
         // --- 【群聊逻辑】 ---
         // 严格区分群聊，即使后端暂未返回群名称，也兜底显示为 "群聊 xx"
-        activeChatName = activeConv.name || `群聊 ${activeConv.conversation_id}`;
+        activeChatName = activeConv.name || (activeConv as any).conversation_name || `群聊 ${activeConv.conversation_id}`;
         activeChatAvatar = activeConv.avatar_url || null;
       }
     }

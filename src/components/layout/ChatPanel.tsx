@@ -8,6 +8,8 @@ import { ContextMenu, ContextMenuItem } from '../common/ContextMenu/ContextMenu'
 import { LocalMessage } from '../../hooks/useChat';
 import { UserInfoModal } from './UserInfoModal';
 import { GroupInfoPanel } from './GroupInfoPanel';
+import { GroupAnnouncementsListModal } from './GroupAnnouncementsListModal';
+import { getGroupInfo, getGroupMembers, GroupInfoData, GroupMember } from '../../api/group';
 import { formatMessageBubbleTime, shouldShowTimeBubble } from '../../utils/timeFormat';
 import { RemoveFriendModal } from './RemoveFriendModal';
 import { useContactContext } from '../../context/ContactContext';
@@ -51,12 +53,40 @@ export const ChatPanel: React.FC<ChatPanelProps & { activeChatName?: string; act
 
   // Group Info Panel state
   const [isGroupInfoPanelOpen, setIsGroupInfoPanelOpen] = useState(false);
+  const [groupInfo, setGroupInfo] = useState<GroupInfoData | null>(null);
+  const [groupMembers, setGroupMembers] = useState<GroupMember[]>([]);
+  const [isAnnouncementBannerVisible, setIsAnnouncementBannerVisible] = useState(true);
+  const [isAnnouncementsListOpen, setIsAnnouncementsListOpen] = useState(false);
 
   // Header Dropdown state
   const { xPos: headerXPos, yPos: headerYPos, showMenu: showHeaderMenu, setShowMenu: setShowHeaderMenu, handleContextMenu: handleHeaderContextMenu } = useContextMenu();
   const [isRemoveFriendModalOpen, setIsRemoveFriendModalOpen] = useState(false);
 
   const { friends, removeFriendState } = useContactContext();
+
+  useEffect(() => {
+    if (activeChatId) {
+      // Reset banner state when switching chats
+      setIsAnnouncementBannerVisible(true);
+
+      const conv = conversations.find(c => c.conversation_id === activeChatId);
+      if (conv?.type === 'group') {
+        getGroupInfo({ conversation_id: activeChatId }).then(res => {
+          if (res.code === 200 && res.data) {
+            setGroupInfo(res.data);
+          }
+        }).catch(console.error);
+        getGroupMembers({ conversation_id: activeChatId }).then(res => {
+          if (res.code === 200 && res.data) {
+            setGroupMembers(res.data.list || []);
+          }
+        }).catch(console.error);
+      } else {
+        setGroupInfo(null);
+        setGroupMembers([]);
+      }
+    }
+  }, [activeChatId, conversations]);
 
   // Find current conversation metadata
   const currentConversation = conversations.find(c => c.conversation_id === activeChatId);
@@ -524,7 +554,42 @@ export const ChatPanel: React.FC<ChatPanelProps & { activeChatName?: string; act
         conversationId={activeChatId}
         isOpen={isGroupInfoPanelOpen}
         onClose={() => setIsGroupInfoPanelOpen(false)}
-        onAvatarClick={handleAvatarClick}
+        onSearchClick={() => setIsSearchModalOpen(true)}
+      />
+
+      {isGroupChat && groupInfo?.latest_announcement && isAnnouncementBannerVisible && (
+        <div className="bg-brand/10 border-b border-brand/20 px-4 py-2 flex items-start justify-between shrink-0">
+          <div
+            className="flex-1 cursor-pointer"
+            onClick={() => setIsAnnouncementsListOpen(true)}
+          >
+            <div className="flex items-center text-brand text-xs font-medium mb-1">
+              <span className="mr-2">群公告</span>
+            </div>
+            <p className="text-sm text-primary line-clamp-2">{groupInfo.latest_announcement.content}</p>
+          </div>
+          <button
+            onClick={() => setIsAnnouncementBannerVisible(false)}
+            className="ml-4 p-1 hover:bg-brand/10 rounded text-secondary hover:text-primary transition-colors shrink-0"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
+      <GroupAnnouncementsListModal
+        isOpen={isAnnouncementsListOpen}
+        onClose={() => setIsAnnouncementsListOpen(false)}
+        conversationId={activeChatId}
+        canPublish={groupInfo?.my_role === 'owner' || groupInfo?.my_role === 'admin'}
+        onPublishNewClick={() => {
+           // For ChatPanel we just close it, let them use GroupInfoPanel to publish or we can add GroupAnnouncementModal here too if needed.
+           // Since requirements said "click to view details", this list is enough. If they click "Publish New", we can ignore or we need to add the modal.
+           // It's cleaner to just not support "publish new" from the banner directly to save complexity,
+           // but since we reuse the list modal, we'll pass a dummy or implement it. Let's just implement it later if needed.
+           setIsAnnouncementsListOpen(false);
+           alert("请从右上角「查看群聊信息」进入发布新公告");
+        }}
       />
 
       {/* Message History Area */}
@@ -623,14 +688,24 @@ export const ChatPanel: React.FC<ChatPanelProps & { activeChatName?: string; act
                 {!isMe && (
                   <div className="flex flex-col items-center mr-3">
                     {/* 1. 渲染名字 */}
-                    <span className="text-[10px] text-secondary mb-1 whitespace-nowrap overflow-hidden text-ellipsis max-w-[60px]">
-                      {msg.sender_id === -1 ? "系统通知" :
-                       msg.sender_id === -2 ? "群助手" :
-                       (isGroupChat ? 
-                         (friends.find(f => f.user_id === msg.sender_id)?.username || `User ${msg.sender_id}`) 
-                         : (activeChatName || msg.sender_id)
-                       )}
-                    </span>
+                    <div className="flex items-center space-x-1 mb-1 max-w-[100px]">
+                      <span className="text-[10px] text-secondary whitespace-nowrap overflow-hidden text-ellipsis">
+                        {msg.sender_id === -1 ? "系统通知" :
+                         msg.sender_id === -2 ? "群助手" :
+                         (isGroupChat ?
+                           (friends.find(f => f.user_id === msg.sender_id)?.username || `User ${msg.sender_id}`)
+                           : (activeChatName || msg.sender_id)
+                         )}
+                      </span>
+                      {isGroupChat && groupMembers && (
+                        (() => {
+                          const role = groupMembers.find(m => m.user_id === msg.sender_id)?.role;
+                          if (role === 'owner') return <span className="text-[8px] bg-yellow-500 text-white px-1 rounded">Owner</span>;
+                          if (role === 'admin') return <span className="text-[8px] bg-blue-500 text-white px-1 rounded">Admin</span>;
+                          return null;
+                        })()
+                      )}
+                    </div>
 
                     {/* 2. 渲染头像 */}
                     <div
@@ -777,9 +852,11 @@ export const ChatPanel: React.FC<ChatPanelProps & { activeChatName?: string; act
         style={{ height: `${inputHeight}px` }}
         className="bg-primary border-t border-primary flex flex-col shrink-0 px-4 pt-3 pb-3 transition-colors relative"
       >
-        {!isGroupChat && !isFriend ? (
+        {currentConversation?.status === 'abnormal' || (!isGroupChat && !isFriend) ? (
           <div className="flex-1 flex items-center justify-center">
-            <span className="text-sm text-secondary">您与对方已不是好友，无法发送消息。</span>
+            <span className="text-sm text-secondary">
+              {isGroupChat ? '您已退出该群聊，无法发送消息。' : '您与对方已不是好友，无法发送消息。'}
+            </span>
           </div>
         ) : (
           <>

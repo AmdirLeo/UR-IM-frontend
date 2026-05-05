@@ -94,13 +94,13 @@ export const ChatList: React.FC<ChatListProps> = ({ activeChatId, onSelectChat, 
           } else {
             // B. 临时会话/非好友兜底
             chatName = conv.name || `User ${targetId}`;
-            chatAvatarUrl = conv.avatar_url || null;
+            chatAvatarUrl = conv.avatar_url || (conv as any).conversation_avatar || null;
           }
         }
       } else if (conv.type === 'group') {
         // --- 【群聊逻辑】 ---
         // 严格使用 interface 中定义的 name 和 avatar_url
-        chatName = conv.name || `群聊 ${conv.conversation_id}`;
+        chatName = conv.name || (conv as any).conversation_name || `群聊 ${conv.conversation_id}`;
         chatAvatarUrl = conv.avatar_url || null;
       }
 
