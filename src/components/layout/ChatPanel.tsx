@@ -7,6 +7,7 @@ import { useContextMenu } from '../common/ContextMenu/useContextMenu';
 import { ContextMenu, ContextMenuItem } from '../common/ContextMenu/ContextMenu';
 import { LocalMessage } from '../../hooks/useChat';
 import { UserInfoModal } from './UserInfoModal';
+import { GroupInfoPanel } from './GroupInfoPanel';
 import { formatMessageBubbleTime, shouldShowTimeBubble } from '../../utils/timeFormat';
 import { RemoveFriendModal } from './RemoveFriendModal';
 import { useContactContext } from '../../context/ContactContext';
@@ -48,6 +49,9 @@ export const ChatPanel: React.FC<ChatPanelProps & { activeChatName?: string; act
   // Search state
   const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
 
+  // Group Info Panel state
+  const [isGroupInfoPanelOpen, setIsGroupInfoPanelOpen] = useState(false);
+
   // Header Dropdown state
   const { xPos: headerXPos, yPos: headerYPos, showMenu: showHeaderMenu, setShowMenu: setShowHeaderMenu, handleContextMenu: handleHeaderContextMenu } = useContextMenu();
   const [isRemoveFriendModalOpen, setIsRemoveFriendModalOpen] = useState(false);
@@ -68,7 +72,13 @@ export const ChatPanel: React.FC<ChatPanelProps & { activeChatName?: string; act
 
   const headerMenuItems: ContextMenuItem[] = React.useMemo(() => {
     const items: ContextMenuItem[] = [];
-    if (!isGroupChat && isFriend) {
+    if (isGroupChat) {
+      items.push({
+        label: '查看群聊信息',
+        icon: <MoreHorizontal className="w-4 h-4 text-secondary" />,
+        onClick: () => setIsGroupInfoPanelOpen(true)
+      });
+    } else if (isFriend) {
       items.push({
         label: '删除好友',
         icon: <Trash2 className="w-4 h-4 text-red-500" />,
@@ -508,6 +518,13 @@ export const ChatPanel: React.FC<ChatPanelProps & { activeChatName?: string; act
         isOpen={isSearchModalOpen}
         onClose={() => setIsSearchModalOpen(false)}
         isGroupChat={isGroupChat}
+      />
+
+      <GroupInfoPanel
+        conversationId={activeChatId}
+        isOpen={isGroupInfoPanelOpen}
+        onClose={() => setIsGroupInfoPanelOpen(false)}
+        onAvatarClick={handleAvatarClick}
       />
 
       {/* Message History Area */}
