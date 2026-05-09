@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Search, UserPlus, Users as UsersIcon, Plus, Tag } from 'lucide-react';
 import { AddFriendModal } from './AddFriendModal';
-import { FriendRequestsModal } from './FriendRequestsModal';
+import { RequestsModal } from './RequestsModal';
 import styles from './ContactList.module.css';
 import { FriendInfo } from '../../api/friend';
 import { useChatContext } from '../../context/ChatContext';
@@ -23,12 +23,12 @@ export const dummyGroups = [
 ];
 
 export const ContactList: React.FC<ContactListProps> = ({ activeContactId, activeView, onSelectContact, onSelectTagsView, width }) => {
-  const { friendRequests } = useChatContext();
+  const { friendRequests, groupRequests } = useChatContext();
   const { friends, loading, forceRefresh } = useContactContext();
   const [activeTab, setActiveTab] = useState<'friends' | 'groups'>('friends');
   const [searchTerm, setSearchTerm] = useState('');
   const [isAddFriendModalOpen, setIsAddFriendModalOpen] = useState(false);
-  const [isFriendRequestsModalOpen, setIsFriendRequestsModalOpen] = useState(false);
+  const [isRequestsModalOpen, setIsRequestsModalOpen] = useState(false);
 
   const handleModalClose = () => {
     setIsAddFriendModalOpen(false);
@@ -77,28 +77,22 @@ export const ContactList: React.FC<ContactListProps> = ({ activeContactId, activ
       <div className={styles.requestsSection}>
          <div
            className={styles.requestItem}
-           onClick={() => setIsFriendRequestsModalOpen(true)}
+           onClick={() => setIsRequestsModalOpen(true)}
          >
             <div className="w-10 h-10 rounded overflow-hidden flex-shrink-0 mr-3 bg-orange-400 flex items-center justify-center relative">
               <UserPlus className="h-5 w-5 text-white" />
-              {friendRequests.length > 0 && (
+              {(friendRequests.length > 0 || groupRequests.length > 0) && (
                 <div className="absolute top-0 right-0 w-3 h-3 bg-red-500 rounded-full border-2 border-primary" />
               )}
             </div>
             <div className="flex-1 flex items-center justify-between">
-              <span className="text-base text-secondary">Friend Requests</span>
-              {friendRequests.length > 0 && (
+              <span className="text-base text-secondary">System Requests</span>
+              {(friendRequests.length > 0 || groupRequests.length > 0) && (
                 <span className="bg-red-500 text-white text-xs px-2 py-0.5 rounded-full font-medium">
-                  {friendRequests.length}
+                  {friendRequests.length + groupRequests.length}
                 </span>
               )}
             </div>
-         </div>
-         <div className={styles.requestItem}>
-            <div className="w-10 h-10 rounded overflow-hidden flex-shrink-0 mr-3 bg-green-500 flex items-center justify-center">
-              <UsersIcon className="h-5 w-5 text-white" />
-            </div>
-            <span className="text-base text-secondary">Group Requests</span>
          </div>
          <div
            className={`${styles.requestItem} ${activeView === 'tags' ? styles.requestItemActive : ''}`}
@@ -185,9 +179,9 @@ export const ContactList: React.FC<ContactListProps> = ({ activeContactId, activ
         onClose={handleModalClose}
       />
 
-      <FriendRequestsModal
-        isOpen={isFriendRequestsModalOpen}
-        onClose={() => setIsFriendRequestsModalOpen(false)}
+      <RequestsModal
+        isOpen={isRequestsModalOpen}
+        onClose={() => setIsRequestsModalOpen(false)}
         onSuccess={() => forceRefresh()}
       />
     </div>

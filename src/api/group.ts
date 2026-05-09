@@ -141,3 +141,34 @@ export const removeGroupMember = async (data: GroupRemoveMemberRequest): Promise
   const response = await api.delete('/group/member', { data });
   return response.data;
 };
+
+export interface GroupInviteCard {
+  card_type: string;
+  apply_id: number;
+  conversation_id: number;
+  conversation_name: string;
+  group_avatar: string | null;
+  applicant_id: number;
+  applicant_name: string;
+  applicant_avatar: string | null;
+  inviter_id: number;
+  inviter_name: string;
+  inviter_avatar: string | null;
+  status: string;
+  create_time: number;
+}
+
+export interface GroupInviteReviewRequest {
+  apply_id: number;
+  status: "APPROVED" | "IGNORED";
+}
+
+export const getPendingGroupInvites = async (): Promise<GroupGenericResponse<GroupInviteCard[]> & { total?: number }> => {
+  const response = await api.get('/group/invites/pending');
+  return response.data;
+};
+
+export const reviewGroupInvite = async (data: GroupInviteReviewRequest): Promise<GroupGenericResponse<null>> => {
+  const response = await api.post('/group/invite/review', data);
+  return response.data;
+};

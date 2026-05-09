@@ -71,6 +71,7 @@ export const ChatPanel: React.FC<ChatPanelProps & { activeChatName?: string; act
 
       const conv = conversations.find(c => c.conversation_id === activeChatId);
       if (conv?.type === 'group') {
+        // We only fetch when activeChatId changes, preventing re-fetching on new messages
         getGroupInfo({ conversation_id: activeChatId }).then(res => {
           if (res.code === 200 && res.data) {
             setGroupInfo(res.data);
@@ -86,7 +87,7 @@ export const ChatPanel: React.FC<ChatPanelProps & { activeChatName?: string; act
         setGroupMembers([]);
       }
     }
-  }, [activeChatId, conversations]);
+  }, [activeChatId]); // Removed conversations from deps to avoid re-fetching on every new message
 
   // Find current conversation metadata
   const currentConversation = conversations.find(c => c.conversation_id === activeChatId);
@@ -102,13 +103,7 @@ export const ChatPanel: React.FC<ChatPanelProps & { activeChatName?: string; act
 
   const headerMenuItems: ContextMenuItem[] = React.useMemo(() => {
     const items: ContextMenuItem[] = [];
-    if (isGroupChat) {
-      items.push({
-        label: '查看群聊信息',
-        icon: <MoreHorizontal className="w-4 h-4 text-secondary" />,
-        onClick: () => setIsGroupInfoPanelOpen(true)
-      });
-    } else if (isFriend) {
+    if (!isGroupChat && isFriend) {
       items.push({
         label: '删除好友',
         icon: <Trash2 className="w-4 h-4 text-red-500" />,
@@ -520,7 +515,9 @@ export const ChatPanel: React.FC<ChatPanelProps & { activeChatName?: string; act
           <MoreHorizontal
             className="w-5 h-5 ml-2 hover:text-primary cursor-pointer"
             onClick={(e) => {
-               if (headerMenuItems.length > 0) {
+               if (isGroupChat) {
+                 setIsGroupInfoPanelOpen(true);
+               } else if (headerMenuItems.length > 0) {
                  handleHeaderContextMenu(e as unknown as React.MouseEvent);
                }
             }}
