@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Search, UserPlus, Users as UsersIcon, Plus, Tag } from 'lucide-react';
+import { Search, UserPlus, Plus, Tag } from 'lucide-react';
 import { AddFriendModal } from './AddFriendModal';
 import { RequestsModal } from './RequestsModal';
 import styles from './ContactList.module.css';

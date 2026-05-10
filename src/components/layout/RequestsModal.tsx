@@ -13,7 +13,6 @@ const FriendRequestItem = ({
   req,
   processingId,
   handleAction,
-  setError
 }: {
   req: any;
   processingId: number | null;
