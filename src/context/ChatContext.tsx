@@ -36,12 +36,22 @@ export const ChatProvider: React.FC<{ children: ReactNode, token: string | null,
   React.useEffect(() => {
     const latestMessage = ws.messages[ws.messages.length - 1];
     if (latestMessage && latestMessage.type === 'NEW_CHAT_MESSAGE') {
-      // Don't pass friend requests (which should have _applicant_id or sender_id = -1 properly filtered out by this point or within receiveIncomingMessage)
-      if (latestMessage.data.sender_id !== -1 && latestMessage.data.sender_id !== -2) {
+      // Allow notify messages (sender_id = -1 or -2) to pass through so they render in chat
+      if (latestMessage.data.msg_type === 'notify' || (latestMessage.data.sender_id !== -1 && latestMessage.data.sender_id !== -2)) {
         chatState.receiveIncomingMessage(latestMessage.data);
       }
     }
   }, [ws.messages, chatState.receiveIncomingMessage]);
+
+  React.useEffect(() => {
+    const handleRemoteGroupJoined = () => {
+      chatState.loadConversations();
+    };
+    window.addEventListener('remote_group_joined', handleRemoteGroupJoined);
+    return () => {
+      window.removeEventListener('remote_group_joined', handleRemoteGroupJoined);
+    };
+  }, [chatState.loadConversations]);
 
   const combinedValue = {
     ...ws,

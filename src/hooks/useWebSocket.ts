@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
+import { parseMessageContent } from '../utils/messageParser';
 
 export interface ChatMessage {
   type: 'chat' | 'private' | 'broadcast';
@@ -227,17 +228,9 @@ export const useWebSocket = (token: string | null): UseWebSocketReturn => {
             const msgType = innerData.msg_type; // 'card' 或者是 'notify'
 
             // 兼容直接在 extra 字段下发，或者在 content 中 stringify 的情况
-            let extra = innerData.extra || {};
-            if (Object.keys(extra).length === 0 && innerData.content) {
-              try {
-                const parsedContent = JSON.parse(innerData.content);
-                if (parsedContent.extra) {
-                  extra = parsedContent.extra;
-                }
-              } catch (e) {
-                // Not valid JSON, which is expected for plain text content
-              }
-            }
+            const parsed = parseMessageContent(innerData.content, innerData.extra);
+            const extra = parsed.extra;
+            innerData.content = parsed.content; // update content to clean string
 
             // 🌟 情况 A：这确实是一条【好友申请】
             if (msgType === 'card' && extra.card_type === 'friend_apply') {
@@ -280,15 +273,9 @@ export const useWebSocket = (token: string | null): UseWebSocketReturn => {
           if (innerData?.sender_id === -2) {
             const msgType = innerData.msg_type;
 
-            let extra = innerData.extra || {};
-            if (Object.keys(extra).length === 0 && innerData.content) {
-              try {
-                const parsedContent = JSON.parse(innerData.content);
-                if (parsedContent.extra) {
-                  extra = parsedContent.extra;
-                }
-              } catch (e) {}
-            }
+            const parsed = parseMessageContent(innerData.content, innerData.extra);
+            const extra = parsed.extra;
+            innerData.content = parsed.content;
 
             // 🌟 情况 C：这确实是一条【入群申请】
             if (msgType === 'card' && extra.card_type === 'group_apply') {
@@ -317,6 +304,47 @@ export const useWebSocket = (token: string | null): UseWebSocketReturn => {
               });
 
               return; // 处理完毕，退出
+            }
+
+            // 🌟 情况 D：各种系统群通知
+            if (msgType === 'notify') {
+              const action = extra.action;
+              console.log('🔔 收到群系统通知：', action);
+
+              if (action === 'group_invite_approved_by_other') {
+                console.log('收到其他管理员同意通知，刷新待处理列表');
+                import('../api/group').then(({ getPendingGroupInvites }) => {
+                  getPendingGroupInvites().then(res => {
+                      const rawRequests = res.data || [];
+                      const mappedRequests = rawRequests.map(req => ({
+                          type: 'NEW_CHAT_MESSAGE' as const,
+                          data: {
+                              conversation_id: -1,
+                              msg_id: req.apply_id,
+                              sender_id: -2,
+                              msg_type: 'card',
+                              content: JSON.stringify({
+                                  type: 'card',
+                                  content: `[收到一条入群申请]`,
+                                  extra: req
+                              }),
+                              create_time: new Date(req.create_time * 1000).toISOString(),
+                          }
+                      }));
+                      setGroupRequests(mappedRequests);
+                  }).catch(e => console.error("Failed to re-fetch group requests on WS event", e));
+                });
+                return;
+              }
+
+              if (action === 'group_invite_approved_for_invitee') {
+                console.log('你已被批准加入群聊，刷新群列表并插入系统通知');
+                window.dispatchEvent(new CustomEvent('remote_group_joined'));
+              }
+
+              // 将系统通知推入聊天列表，让页面显示系统提示
+              setMessages((prev) => [...prev, data]);
+              return;
             }
 
             console.log('收到未知的群系统消息:', data);

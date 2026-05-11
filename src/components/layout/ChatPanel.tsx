@@ -11,6 +11,7 @@ import { GroupInfoPanel } from './GroupInfoPanel';
 import { GroupAnnouncementsListModal } from './GroupAnnouncementsListModal';
 import { getGroupInfo, getGroupMembers, GroupInfoData, GroupMember } from '../../api/group';
 import { formatMessageBubbleTime, shouldShowTimeBubble } from '../../utils/timeFormat';
+import { parseMessageContent } from '../../utils/messageParser';
 import { RemoveFriendModal } from './RemoveFriendModal';
 import { useContactContext } from '../../context/ContactContext';
 import { removeFriend } from '../../api/friend';
@@ -657,15 +658,8 @@ export const ChatPanel: React.FC<ChatPanelProps & { activeChatName?: string; act
             // LocalMessage has sender_id directly at top level
             const isMe = msg.sender_id?.toString() === currentUserId;
 
-            let parsedContent = msg.msg_content;
-            if (parsedContent && typeof parsedContent === 'string' && parsedContent.startsWith('{')) {
-              try {
-                const parsedObj = JSON.parse(parsedContent);
-                parsedContent = parsedObj.content || parsedContent;
-              } catch (e) {
-                // Ignore parse errors, fallback to raw string
-              }
-            }
+            const parsed = parseMessageContent(msg.msg_content, msg.extra);
+            const parsedContent = parsed.content;
 
             return (
               <React.Fragment key={msg.msg_id || msg.local_id || idx}>
@@ -753,15 +747,9 @@ export const ChatPanel: React.FC<ChatPanelProps & { activeChatName?: string; act
                         const quotedMsg = quotedMessagesMap[msg.quote_msg_id!];
                         if (!quotedMsg) return '正在加载原消息...'; // 状态改变后会自动变成真实内容
 
-                        let qContent = quotedMsg.msg_content || '';
-                        if (qContent.startsWith('{')) {
-                          try {
-                            const parsed = JSON.parse(qContent);
-                            qContent = parsed.content || qContent;
-                          } catch (e) {
-                            /* Ignored intentionally */
-                          }
-                        }
+                        const qParsed = parseMessageContent(quotedMsg.msg_content, quotedMsg.extra);
+                        const qContent = qParsed.content || '';
+
                         return `${quotedMsg.sender_id === Number(currentUserId) ? '我' : (activeChatName || quotedMsg.sender_id)}: ${qContent}`;
                       })()}
                     </div>

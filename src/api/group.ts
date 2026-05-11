@@ -163,6 +163,20 @@ export interface GroupInviteReviewRequest {
   status: "APPROVED" | "IGNORED";
 }
 
+export interface GroupInviteRequest {
+  conversation_id: number;
+  user_id: number;
+}
+
+export interface GroupInviteResponseData {
+  apply_id: number;
+}
+
+export const inviteToGroup = async (data: GroupInviteRequest): Promise<GroupGenericResponse<GroupInviteResponseData>> => {
+  const response = await api.post('/group/invite', data);
+  return response.data;
+};
+
 export const getPendingGroupInvites = async (): Promise<GroupGenericResponse<GroupInviteCard[]> & { total?: number }> => {
   const response = await api.get('/group/invites/pending');
   return response.data;
