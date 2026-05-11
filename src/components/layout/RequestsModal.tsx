@@ -5,6 +5,7 @@ import { handleFriendRequest } from '../../api/friend';
 import { formatAvatarUrl } from '../../utils/url';
 import { getUserInfo } from '../../api/friend.ts';
 import { reviewGroupInvite } from '../../api/group';
+import { parseMessageContent } from '../../utils/messageParser';
 
 // ==========================================
 // 1. Friend Request Item
@@ -19,17 +20,8 @@ const FriendRequestItem = ({
   handleAction: (msgId: number, requestId: number, action: 'accepted' | 'rejected') => void;
   setError: (err: string) => void;
 }) => {
-  let extra: Record<string, any> = req.data.extra || {};
-  if (Object.keys(extra).length === 0 && req.data.content) {
-    try {
-      const parsedContent = typeof req.data.content === 'string'
-        ? JSON.parse(req.data.content)
-        : (req.data.content || {});
-      if (parsedContent.extra) {
-        extra = parsedContent.extra;
-      }
-    } catch (e) {}
-  }
+  const parsed = parseMessageContent(req.data.content, req.data.extra);
+  const extra = parsed.extra;
 
   const msgId = req.data.msg_id;
   const requestId = Number(extra.request_id ?? req.data.msg_id);
@@ -123,17 +115,8 @@ const GroupRequestItem = ({
   processingId: number | null;
   handleAction: (applyId: number, action: 'APPROVED' | 'IGNORED') => void;
 }) => {
-  let extra: Record<string, any> = req.data.extra || {};
-  if (Object.keys(extra).length === 0 && req.data.content) {
-    try {
-      const parsedContent = typeof req.data.content === 'string'
-        ? JSON.parse(req.data.content)
-        : (req.data.content || {});
-      if (parsedContent.extra) {
-        extra = parsedContent.extra;
-      }
-    } catch (e) {}
-  }
+  const parsed = parseMessageContent(req.data.content, req.data.extra);
+  const extra = parsed.extra;
 
   const applyId = Number(extra.apply_id);
   const applicantName = extra.applicant_name || `用户 ${extra.applicant_id}`;
