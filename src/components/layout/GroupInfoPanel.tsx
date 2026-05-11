@@ -39,6 +39,23 @@ export const GroupInfoPanel: React.FC<GroupInfoPanelProps> = ({
     }
   }, [isOpen, conversationId]);
 
+  useEffect(() => {
+    const handleRemoteGroupUpdate = (event: Event) => {
+      const customEvent = event as CustomEvent;
+      if (customEvent.detail && customEvent.detail.conversation_id === conversationId) {
+        if (isOpen) {
+          fetchData();
+        }
+      }
+    };
+
+    window.addEventListener('remote_group_update', handleRemoteGroupUpdate);
+
+    return () => {
+      window.removeEventListener('remote_group_update', handleRemoteGroupUpdate);
+    };
+  }, [isOpen, conversationId]);
+
   const fetchData = async () => {
     setLoading(true);
     try {
@@ -89,7 +106,7 @@ export const GroupInfoPanel: React.FC<GroupInfoPanelProps> = ({
         await loadConversations();
         onClose();
         // Since we quit the group, we might want to redirect away from this chat
-        window.dispatchEvent(new CustomEvent('friendRemoved', { detail: { friendId: conversationId } })); // reusing event to close chat panel
+        window.dispatchEvent(new CustomEvent('remote_group_removed', { detail: { conversation_id: conversationId } }));
       } catch (e) {
         console.error("Failed to quit group:", e);
       }
@@ -102,7 +119,7 @@ export const GroupInfoPanel: React.FC<GroupInfoPanelProps> = ({
         await bombGroup({ conversation_id: conversationId });
         await loadConversations();
         onClose();
-        window.dispatchEvent(new CustomEvent('friendRemoved', { detail: { friendId: conversationId } }));
+        window.dispatchEvent(new CustomEvent('remote_group_removed', { detail: { conversation_id: conversationId } }));
       } catch (e) {
         console.error("Failed to dissolve group:", e);
       }

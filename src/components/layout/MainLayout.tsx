@@ -63,9 +63,20 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ currentUserId, username,
       removeMessagesWithUser(friendId);
     };
 
+    const handleGroupRemoved = (event: CustomEvent) => {
+      const { conversation_id } = event.detail;
+      if (activeChatId === conversation_id) {
+        setActiveChatId(null);
+      }
+      // Depending on requirements, we might want to also remove local messages
+      // but usually for a group, we might keep them or clear them. For now just close the panel.
+    };
+
     window.addEventListener('friendRemoved', handleFriendRemoved as EventListener);
+    window.addEventListener('remote_group_removed', handleGroupRemoved as EventListener);
     return () => {
       window.removeEventListener('friendRemoved', handleFriendRemoved as EventListener);
+      window.removeEventListener('remote_group_removed', handleGroupRemoved as EventListener);
     };
   }, [activeContactId, activeChatId, removeMessagesWithUser]);
 

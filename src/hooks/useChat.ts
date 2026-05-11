@@ -143,24 +143,6 @@ export const useChat = (currentUserId: number) => {
     }
   }, [messagesMap, currentUserId]);
 
-  /**
-   * Sort conversations:
-   * 1. Pinned conversations first
-   * 2. Then by last_msg_send_time (descending)
-   */
-  const sortedConversations = useMemo(() => {
-    return [...conversations].sort((a, b) => {
-      // 1. Pinned
-      if (a.pinned && !b.pinned) return -1;
-      if (!a.pinned && b.pinned) return 1;
-
-      // 2. Sort by time
-      const timeA = a.last_msg_send_time ? new Date(a.last_msg_send_time).getTime() : 0;
-      const timeB = b.last_msg_send_time ? new Date(b.last_msg_send_time).getTime() : 0;
-      return timeB - timeA;
-    });
-  }, [conversations]);
-
   const loadConversations = useCallback(async () => {
     try {
       const response = await chatApi.syncConversations();
@@ -182,6 +164,37 @@ export const useChat = (currentUserId: number) => {
       console.error('Failed to load conversations', err);
     }
   }, []);
+
+  // Listen for real-time group join/leave events to update the conversation list
+  useEffect(() => {
+    const handleRemoteGroupJoin = () => {
+      loadConversations();
+    };
+
+    window.addEventListener('remote_group_join', handleRemoteGroupJoin);
+    
+    return () => {
+      window.removeEventListener('remote_group_join', handleRemoteGroupJoin);
+    };
+  }, [loadConversations]);
+  
+  /**
+   * Sort conversations:
+   * 1. Pinned conversations first
+   * 2. Then by last_msg_send_time (descending)
+   */
+  const sortedConversations = useMemo(() => {
+    return [...conversations].sort((a, b) => {
+      // 1. Pinned
+      if (a.pinned && !b.pinned) return -1;
+      if (!a.pinned && b.pinned) return 1;
+
+      // 2. Sort by time
+      const timeA = a.last_msg_send_time ? new Date(a.last_msg_send_time).getTime() : 0;
+      const timeB = b.last_msg_send_time ? new Date(b.last_msg_send_time).getTime() : 0;
+      return timeB - timeA;
+    });
+  }, [conversations]);
 
   const loadMessageHistory = useCallback(async (conversationId: number, startMsgId?: number, limit: number = 50) => {
     try {

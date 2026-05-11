@@ -319,6 +319,38 @@ export const useWebSocket = (token: string | null): UseWebSocketReturn => {
               return; // 处理完毕，退出
             }
 
+            // 处理群相关系统通知
+            if (msgType === 'notify') {
+              const action = extra.action;
+
+              if (action === 'added_to_group' || action === 'group_created') {
+                console.log('🔔 加入新群聊！系统通知：', extra.tips);
+                window.dispatchEvent(new CustomEvent('remote_group_join'));
+                return;
+              }
+
+              if (action === 'group_admin_set' || action === 'group_admin_unset' || action === 'group_owner_transferred') {
+                console.log('🔔 群权限变更！系统通知：', extra.tips);
+                window.dispatchEvent(new CustomEvent('remote_group_update', {
+                  detail: { conversation_id: extra.conversation_id || innerData.conversation_id }
+                }));
+                return;
+              }
+
+              if (action === 'kicked_from_group' || action === 'left_group') {
+                console.log('🔔 移出群聊！系统通知：', extra.tips);
+                if (action === 'kicked_from_group') {
+                  alert('您已被移出该群聊');
+                }
+                const targetGroupId = extra.conversation_id || innerData.conversation_id;
+                // Dispatch event to close chat panel safely
+                window.dispatchEvent(new CustomEvent('remote_group_removed', { detail: { conversation_id: targetGroupId } }));
+                // Dispatch event to refresh list
+                window.dispatchEvent(new CustomEvent('remote_group_join'));
+                return;
+              }
+            }
+            
             console.log('收到未知的群系统消息:', data);
             return; 
           }
