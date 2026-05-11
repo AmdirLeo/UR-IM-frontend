@@ -101,6 +101,30 @@ export const UserInfoModal: React.FC<UserInfoModalProps> = ({ userId, isOpen, on
     }
   };
 
+  const handleTransferOwner = async () => {
+    if (!groupContext) return;
+    if (!window.confirm('确定要将群主转让给该成员吗？操作后你将自动失去群主权限。')) return;
+
+    try {
+      const res = await setGroupAdmin({
+        conversation_id: groupContext.conversationId,
+        user_id: userId,
+        role: 'owner'
+      });
+      if (res.code === 200) {
+        onGroupActionSuccess?.();
+        onClose();
+        // 重新拉取最新的系统消息，让屏幕上立刻显示“xx将xx设为群主”
+        loadMessageHistory(groupContext.conversationId, undefined, 5);
+      } else {
+        alert(res.msg || '转让失败');
+      }
+    } catch (e) {
+      console.error(e);
+      alert('转让失败，请重试');
+    }
+  };
+
   if (!isOpen) return null;
 
   return (
@@ -148,6 +172,14 @@ export const UserInfoModal: React.FC<UserInfoModalProps> = ({ userId, isOpen, on
                       className="w-full py-2 bg-red-500/10 text-red-500 hover:bg-red-500/20 rounded transition-colors text-sm"
                     >
                       移出群聊
+                    </button>
+                  )}
+                  {groupContext.myRole === 'owner' && groupContext.targetRole !== 'owner' && (
+                    <button
+                      onClick={handleTransferOwner}
+                      className="w-full py-2 bg-blue-500/10 text-blue-600 hover:bg-blue-500/20 rounded transition-colors text-sm"
+                    >
+                      转让群主
                     </button>
                   )}
                 </div>
