@@ -33,6 +33,7 @@ export const GroupAnnouncementModal: React.FC<GroupAnnouncementModalProps> = ({
         onSuccess();
         setContent('');
         onClose();
+        window.dispatchEvent(new CustomEvent('refresh_group_info'));
       } else {
         alert(res.msg || "发布失败");
       }

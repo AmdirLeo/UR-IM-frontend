@@ -334,6 +334,8 @@ export const useWebSocket = (token: string | null): UseWebSocketReturn => {
                 window.dispatchEvent(new CustomEvent('remote_group_update', {
                   detail: { conversation_id: extra.conversation_id || innerData.conversation_id }
                 }));
+
+                setMessages((prev) => [...prev, data]);
                 return;
               }
 
@@ -373,13 +375,17 @@ export const useWebSocket = (token: string | null): UseWebSocketReturn => {
     };
 
     ws.onerror = (error) => {
-      console.error('WebSocket error:', error);
+      if (ws.readyState !== WebSocket.CLOSED && ws.readyState !== WebSocket.CLOSING) {
+        console.error('WebSocket error:', error);
+      }
     };
 
     return () => {
       if (pingIntervalRef.current !== null) {
         clearInterval(pingIntervalRef.current);
       }
+      ws.onclose = null; 
+      ws.onerror = null;
       ws.close();
     };
   }, [token]);

@@ -3,6 +3,7 @@ import { X } from 'lucide-react';
 import { getUserInfo } from '../../api/friend';
 import { setGroupAdmin, removeGroupMember } from '../../api/group';
 import { formatAvatarUrl } from '../../utils/url';
+import { useChatContext } from '../../context/ChatContext';
 
 export interface GroupContextForUserModal {
   conversationId: number;
@@ -21,6 +22,7 @@ interface UserInfoModalProps {
 export const UserInfoModal: React.FC<UserInfoModalProps> = ({ userId, isOpen, onClose, groupContext, onGroupActionSuccess }) => {
   const [loading, setLoading] = useState(false);
   const [userInfo, setUserInfo] = useState<any>(null);
+  const { loadMessageHistory } = useChatContext();
 
   useEffect(() => {
     if (isOpen && userId) {
@@ -68,6 +70,8 @@ export const UserInfoModal: React.FC<UserInfoModalProps> = ({ userId, isOpen, on
       if (res.code === 200) {
         onGroupActionSuccess?.();
         onClose();
+
+        loadMessageHistory(groupContext.conversationId, undefined, 5);
       } else {
         alert(res.msg || '操作失败');
       }

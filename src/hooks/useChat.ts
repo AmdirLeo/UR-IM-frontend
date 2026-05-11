@@ -551,7 +551,17 @@ export const useChat = (currentUserId: number) => {
           const isCurrentActiveChat = activeChatIdRef.current === convId;
           
           // 如果不是我自己发的，且我没在看这个会话，才增加未读数！
-          const shouldAddUnread = !isOwnMessage && !isCurrentActiveChat; 
+          let shouldAddUnread = !isOwnMessage && !isCurrentActiveChat; 
+
+          // 1. 如果是系统通知（-1）或群助手（-2），一律不增加未读数（解决退群/被踢等通知导致 +1）
+          if (newMsg.msg_type === 'notify' && (newMsg.sender_id === -2 || newMsg.sender_id === -1)) {
+             shouldAddUnread = false;
+          }
+
+          // 2. 如果当前会话状态已经是 abnormal（已退群/被踢），不再接受任何新消息的未读提醒
+          if (conv.status === 'abnormal') {
+            shouldAddUnread = false;
+          }
 
           return {
             ...conv,
