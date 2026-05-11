@@ -11,6 +11,7 @@ import { GroupInfoPanel } from './GroupInfoPanel';
 import { GroupAnnouncementsListModal } from './GroupAnnouncementsListModal';
 import { getGroupInfo, getGroupMembers, GroupInfoData, GroupMember } from '../../api/group';
 import { formatMessageBubbleTime, shouldShowTimeBubble } from '../../utils/timeFormat';
+import { parseMessageContent } from '../../utils/messageParser';
 import { RemoveFriendModal } from './RemoveFriendModal';
 import { useContactContext } from '../../context/ContactContext';
 import { removeFriend } from '../../api/friend';
@@ -719,15 +720,8 @@ export const ChatPanel: React.FC<ChatPanelProps & { activeChatName?: string; act
             // LocalMessage has sender_id directly at top level
             const isMe = msg.sender_id?.toString() === currentUserId;
 
-            let parsedContent = msg.msg_content;
-            if (parsedContent && typeof parsedContent === 'string' && parsedContent.startsWith('{')) {
-              try {
-                const parsedObj = JSON.parse(parsedContent);
-                parsedContent = parsedObj.content || parsedContent;
-              } catch (e) {
-                // Ignore parse errors, fallback to raw string
-              }
-            }
+            const parsed = parseMessageContent(msg.msg_content, msg.extra);
+            const parsedContent = parsed.content;
 
             // Handle group announcement rendering
             let parsedAnnouncement: any = null;

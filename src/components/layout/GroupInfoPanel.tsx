@@ -6,6 +6,7 @@ import { useChatContext } from '../../context/ChatContext';
 import { GroupAnnouncementModal } from './GroupAnnouncementModal';
 import { GroupAnnouncementsListModal } from './GroupAnnouncementsListModal';
 import { UserInfoModal } from './UserInfoModal';
+import { InviteFriendToGroupModal } from './InviteFriendToGroupModal';
 
 interface GroupInfoPanelProps {
   conversationId: number;
@@ -28,6 +29,7 @@ export const GroupInfoPanel: React.FC<GroupInfoPanelProps> = ({
   const [isAnnouncementModalOpen, setIsAnnouncementModalOpen] = useState(false);
   const [isAnnouncementsListOpen, setIsAnnouncementsListOpen] = useState(false);
   const [selectedMemberId, setSelectedMemberId] = useState<number | null>(null);
+  const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
 
   const currentConversation = conversations.find(c => c.conversation_id === conversationId);
   const isMuted = currentConversation?.muted || false;
@@ -169,7 +171,7 @@ export const GroupInfoPanel: React.FC<GroupInfoPanelProps> = ({
               ))}
 
               {/* Add Button */}
-              <div className="flex flex-col items-center cursor-pointer group">
+              <div className="flex flex-col items-center cursor-pointer group" onClick={() => setIsInviteModalOpen(true)}>
                 <div className="w-10 h-10 bg-panel border border-dashed border-primary rounded flex items-center justify-center hover:bg-hover transition-colors mb-1">
                   <Plus className="w-5 h-5 text-secondary group-hover:text-primary" />
                 </div>
@@ -289,6 +291,12 @@ export const GroupInfoPanel: React.FC<GroupInfoPanelProps> = ({
           }}
         />
       )}
+
+      <InviteFriendToGroupModal
+        isOpen={isInviteModalOpen}
+        onClose={() => setIsInviteModalOpen(false)}
+        conversationId={conversationId}
+      />
     </div>
 
   );

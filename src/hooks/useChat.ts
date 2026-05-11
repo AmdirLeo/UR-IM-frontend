@@ -12,6 +12,7 @@ export interface LocalMessage extends Partial<HistoryMessageItem> {
   msg_content: string;
   create_time: string;
   sender_id: number;
+  extra?: Record<string, any>;
 }
 
 export const useChat = (currentUserId: number) => {
