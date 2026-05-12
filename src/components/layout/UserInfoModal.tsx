@@ -1,17 +1,28 @@
 import React, { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
 import { getUserInfo } from '../../api/friend';
+import { setGroupAdmin, removeGroupMember } from '../../api/group';
 import { formatAvatarUrl } from '../../utils/url';
+import { useChatContext } from '../../context/ChatContext';
+
+export interface GroupContextForUserModal {
+  conversationId: number;
+  myRole: string;
+  targetRole: string;
+}
 
 interface UserInfoModalProps {
+  groupContext?: GroupContextForUserModal;
+  onGroupActionSuccess?: () => void;
   userId: number;
   isOpen: boolean;
   onClose: () => void;
 }
 
-export const UserInfoModal: React.FC<UserInfoModalProps> = ({ userId, isOpen, onClose }) => {
+export const UserInfoModal: React.FC<UserInfoModalProps> = ({ userId, isOpen, onClose, groupContext, onGroupActionSuccess }) => {
   const [loading, setLoading] = useState(false);
   const [userInfo, setUserInfo] = useState<any>(null);
+  const { loadMessageHistory } = useChatContext();
 
   useEffect(() => {
     if (isOpen && userId) {
@@ -48,6 +59,72 @@ export const UserInfoModal: React.FC<UserInfoModalProps> = ({ userId, isOpen, on
     }
   }, [isOpen, userId]);
 
+  const handleSetAdmin = async (role: 'admin' | 'member') => {
+    if (!groupContext) return;
+    try {
+      const res = await setGroupAdmin({
+        conversation_id: groupContext.conversationId,
+        user_id: userId,
+        role
+      });
+      if (res.code === 200) {
+        onGroupActionSuccess?.();
+        onClose();
+
+        loadMessageHistory(groupContext.conversationId, undefined, 5);
+      } else {
+        alert(res.msg || '操作失败');
+      }
+    } catch (e) {
+      console.error(e);
+      alert('操作失败');
+    }
+  };
+
+  const handleKick = async () => {
+    if (!groupContext) return;
+    if (!window.confirm('确定要将该用户移出群聊吗？')) return;
+    try {
+      const res = await removeGroupMember({
+        conversation_id: groupContext.conversationId,
+        user_id: userId
+      });
+      if (res.code === 200) {
+        onGroupActionSuccess?.();
+        onClose();
+      } else {
+        alert(res.msg || '操作失败');
+      }
+    } catch (e) {
+      console.error(e);
+      alert('操作失败');
+    }
+  };
+
+  const handleTransferOwner = async () => {
+    if (!groupContext) return;
+    if (!window.confirm('确定要将群主转让给该成员吗？操作后你将自动失去群主权限。')) return;
+
+    try {
+      const res = await setGroupAdmin({
+        conversation_id: groupContext.conversationId,
+        user_id: userId,
+        role: 'owner'
+      });
+      if (res.code === 200) {
+        onGroupActionSuccess?.();
+        onClose();
+        // 重新拉取最新的系统消息，让屏幕上立刻显示“xx将xx设为群主”
+        loadMessageHistory(groupContext.conversationId, undefined, 5);
+      } else {
+        alert(res.msg || '转让失败');
+      }
+    } catch (e) {
+      console.error(e);
+      alert('转让失败，请重试');
+    }
+  };
+
   if (!isOpen) return null;
 
   return (
@@ -76,6 +153,37 @@ export const UserInfoModal: React.FC<UserInfoModalProps> = ({ userId, isOpen, on
               </div>
               <h2 className="text-xl font-medium text-primary mb-1">{userInfo.username}</h2>
               <p className="text-sm text-secondary mb-4">ID: {userInfo.user_id || userId}</p>
+
+
+              {groupContext && (
+                <div className="w-full flex flex-col space-y-2 mt-4">
+                  {groupContext.myRole === 'owner' && groupContext.targetRole !== 'owner' && (
+                    <button
+                      onClick={() => handleSetAdmin(groupContext.targetRole === 'admin' ? 'member' : 'admin')}
+                      className="w-full py-2 bg-secondary text-primary hover:bg-hover rounded transition-colors text-sm"
+                    >
+                      {groupContext.targetRole === 'admin' ? '取消管理员' : '设为管理员'}
+                    </button>
+                  )}
+                  {((groupContext.myRole === 'owner' && groupContext.targetRole !== 'owner') ||
+                    (groupContext.myRole === 'admin' && groupContext.targetRole === 'member')) && (
+                    <button
+                      onClick={handleKick}
+                      className="w-full py-2 bg-red-500/10 text-red-500 hover:bg-red-500/20 rounded transition-colors text-sm"
+                    >
+                      移出群聊
+                    </button>
+                  )}
+                  {groupContext.myRole === 'owner' && groupContext.targetRole !== 'owner' && (
+                    <button
+                      onClick={handleTransferOwner}
+                      className="w-full py-2 bg-blue-500/10 text-blue-600 hover:bg-blue-500/20 rounded transition-colors text-sm"
+                    >
+                      转让群主
+                    </button>
+                  )}
+                </div>
+              )}
 
               {userInfo.email && (
                 <div className="w-full bg-secondary rounded p-3 mb-2">

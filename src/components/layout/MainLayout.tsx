@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Sidebar, ViewMode } from './Sidebar';
 import { ChatList } from './ChatList';
 import { ChatPanel } from './ChatPanel';
-import { ContactList, dummyGroups } from './ContactList';
+import { ContactList } from './ContactList';
 import { ContactDetail } from './ContactDetail';
 import { TagManagementPanel } from './TagManagementPanel';
 import { useContactContext } from '../../context/ContactContext';
@@ -63,9 +63,20 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ currentUserId, username,
       removeMessagesWithUser(friendId);
     };
 
+    const handleGroupRemoved = (event: CustomEvent) => {
+      const { conversation_id } = event.detail;
+      if (activeChatId === conversation_id) {
+        setActiveChatId(null);
+      }
+      // Depending on requirements, we might want to also remove local messages
+      // but usually for a group, we might keep them or clear them. For now just close the panel.
+    };
+
     window.addEventListener('friendRemoved', handleFriendRemoved as EventListener);
+    window.addEventListener('remote_group_removed', handleGroupRemoved as EventListener);
     return () => {
       window.removeEventListener('friendRemoved', handleFriendRemoved as EventListener);
+      window.removeEventListener('remote_group_removed', handleGroupRemoved as EventListener);
     };
   }, [activeContactId, activeChatId, removeMessagesWithUser]);
 
@@ -102,10 +113,9 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ currentUserId, username,
 
   // Derived state for ContactDetail
   const activeFriend = friends.find((f) => f.user_id === activeContactId);
-  const activeGroup = dummyGroups.find((g) => g.id === activeContactId);
 
-  const activeContactName = activeFriend?.username || activeGroup?.name;
-  const activeContactAvatarColor = activeGroup?.avatarColor; // Only groups have fallback color now, friends will use real avatar
+  const activeContactName = activeFriend?.username || 'Unknown Contact';
+  const activeContactAvatarColor = undefined;  // Only groups have fallback color now, friends will use real avatar
   const activeContactAvatarUrl = activeFriend?.avatar_url;
 
   const handleSendMessage = async (contactId: number) => {
@@ -166,13 +176,13 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ currentUserId, username,
             activeChatAvatar = matchedFriend.avatar_url || null;
           } else {
             activeChatName = activeConv.name || `User ${targetId}`;
-            activeChatAvatar = activeConv.avatar_url || null;
+            activeChatAvatar = activeConv.avatar_url || (activeConv as any).conversation_avatar || null;
           }
         }
       } else if (activeConv.type === 'group') {
         // --- 【群聊逻辑】 ---
         // 严格区分群聊，即使后端暂未返回群名称，也兜底显示为 "群聊 xx"
-        activeChatName = activeConv.name || `群聊 ${activeConv.conversation_id}`;
+        activeChatName = activeConv.name || (activeConv as any).conversation_name || `群聊 ${activeConv.conversation_id}`;
         activeChatAvatar = activeConv.avatar_url || null;
       }
     }
@@ -207,6 +217,11 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ currentUserId, username,
               activeContactId={activeContactId}
               activeView={contactViewMode}
               onSelectContact={handleSelectContact}
+              onSelectGroupChat={(groupId) => {
+                setActiveChatId(groupId);
+                setPreviousView(activeView);
+                setActiveView('messages');
+              }}
               onSelectTagsView={handleSelectTagsView}
               width={chatListWidth}
             />

@@ -12,6 +12,7 @@ export interface LocalMessage extends Partial<HistoryMessageItem> {
   msg_content: string;
   create_time: string;
   sender_id: number;
+  extra?: Record<string, any>;
 }
 
 export const useChat = (currentUserId: number) => {
@@ -143,24 +144,6 @@ export const useChat = (currentUserId: number) => {
     }
   }, [messagesMap, currentUserId]);
 
-  /**
-   * Sort conversations:
-   * 1. Pinned conversations first
-   * 2. Then by last_msg_send_time (descending)
-   */
-  const sortedConversations = useMemo(() => {
-    return [...conversations].sort((a, b) => {
-      // 1. Pinned
-      if (a.pinned && !b.pinned) return -1;
-      if (!a.pinned && b.pinned) return 1;
-
-      // 2. Sort by time
-      const timeA = a.last_msg_send_time ? new Date(a.last_msg_send_time).getTime() : 0;
-      const timeB = b.last_msg_send_time ? new Date(b.last_msg_send_time).getTime() : 0;
-      return timeB - timeA;
-    });
-  }, [conversations]);
-
   const loadConversations = useCallback(async () => {
     try {
       const response = await chatApi.syncConversations();
@@ -182,6 +165,37 @@ export const useChat = (currentUserId: number) => {
       console.error('Failed to load conversations', err);
     }
   }, []);
+
+  // Listen for real-time group join/leave events to update the conversation list
+  useEffect(() => {
+    const handleRemoteGroupJoin = () => {
+      loadConversations();
+    };
+
+    window.addEventListener('remote_group_join', handleRemoteGroupJoin);
+    
+    return () => {
+      window.removeEventListener('remote_group_join', handleRemoteGroupJoin);
+    };
+  }, [loadConversations]);
+  
+  /**
+   * Sort conversations:
+   * 1. Pinned conversations first
+   * 2. Then by last_msg_send_time (descending)
+   */
+  const sortedConversations = useMemo(() => {
+    return [...conversations].sort((a, b) => {
+      // 1. Pinned
+      if (a.pinned && !b.pinned) return -1;
+      if (!a.pinned && b.pinned) return 1;
+
+      // 2. Sort by time
+      const timeA = a.last_msg_send_time ? new Date(a.last_msg_send_time).getTime() : 0;
+      const timeB = b.last_msg_send_time ? new Date(b.last_msg_send_time).getTime() : 0;
+      return timeB - timeA;
+    });
+  }, [conversations]);
 
   const loadMessageHistory = useCallback(async (conversationId: number, startMsgId?: number, limit: number = 50) => {
     try {
@@ -538,7 +552,17 @@ export const useChat = (currentUserId: number) => {
           const isCurrentActiveChat = activeChatIdRef.current === convId;
           
           // 如果不是我自己发的，且我没在看这个会话，才增加未读数！
-          const shouldAddUnread = !isOwnMessage && !isCurrentActiveChat; 
+          let shouldAddUnread = !isOwnMessage && !isCurrentActiveChat; 
+
+          // 1. 如果是系统通知（-1）或群助手（-2），一律不增加未读数（解决退群/被踢等通知导致 +1）
+          if (newMsg.msg_type === 'notify' && (newMsg.sender_id === -2 || newMsg.sender_id === -1)) {
+             shouldAddUnread = false;
+          }
+
+          // 2. 如果当前会话状态已经是 abnormal（已退群/被踢），不再接受任何新消息的未读提醒
+          if (conv.status === 'abnormal') {
+            shouldAddUnread = false;
+          }
 
           return {
             ...conv,

@@ -35,6 +35,7 @@ export interface ConversationItem {
   last_msg_send_time?: string; // ISO 8601 string
   muted?: boolean;
   pinned?: boolean;
+  status?: 'normal' | 'abnormal';
   // Optional target mapping fields returned by sync API
   target_id?: number;
   target_user_id?: number;
