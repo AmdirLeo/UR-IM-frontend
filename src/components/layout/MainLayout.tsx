@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Sidebar, ViewMode } from './Sidebar';
 import { ChatList } from './ChatList';
 import { ChatPanel } from './ChatPanel';
-import { ContactList, dummyGroups } from './ContactList';
+import { ContactList } from './ContactList';
 import { ContactDetail } from './ContactDetail';
 import { TagManagementPanel } from './TagManagementPanel';
 import { useContactContext } from '../../context/ContactContext';
@@ -113,10 +113,9 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ currentUserId, username,
 
   // Derived state for ContactDetail
   const activeFriend = friends.find((f) => f.user_id === activeContactId);
-  const activeGroup = dummyGroups.find((g) => g.id === activeContactId);
 
-  const activeContactName = activeFriend?.username || activeGroup?.name;
-  const activeContactAvatarColor = activeGroup?.avatarColor; // Only groups have fallback color now, friends will use real avatar
+  const activeContactName = activeFriend?.username || 'Unknown Contact';
+  const activeContactAvatarColor = undefined;  // Only groups have fallback color now, friends will use real avatar
   const activeContactAvatarUrl = activeFriend?.avatar_url;
 
   const handleSendMessage = async (contactId: number) => {
@@ -218,6 +217,11 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ currentUserId, username,
               activeContactId={activeContactId}
               activeView={contactViewMode}
               onSelectContact={handleSelectContact}
+              onSelectGroupChat={(groupId) => {
+                setActiveChatId(groupId);
+                setPreviousView(activeView);
+                setActiveView('messages');
+              }}
               onSelectTagsView={handleSelectTagsView}
               width={chatListWidth}
             />

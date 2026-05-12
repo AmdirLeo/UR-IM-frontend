@@ -23,6 +23,19 @@ export const createGroup = async (data: GroupCreateRequest): Promise<GroupGeneri
   return response.data;
 };
 
+export interface JoinedGroupItem {
+  conversation_id: number;
+  conversation_name: string;
+  avatar_url?: string;
+  role: string;
+  join_time: string;
+}
+
+export const getJoinedGroups = async (): Promise<GroupGenericResponse<JoinedGroupItem[]>> => {
+  const response = await api.get('/group');
+  return response.data;
+};
+
 export interface GroupGenericRequest {
   conversation_id: number;
 }

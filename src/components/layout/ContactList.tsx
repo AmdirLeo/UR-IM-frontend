@@ -4,6 +4,7 @@ import { AddFriendModal } from './AddFriendModal';
 import { RequestsModal } from './RequestsModal';
 import styles from './ContactList.module.css';
 import { FriendInfo } from '../../api/friend';
+import { getJoinedGroups, JoinedGroupItem } from '../../api/group';
 import { useChatContext } from '../../context/ChatContext';
 import { useContactContext } from '../../context/ContactContext';
 import { FriendAvatar } from '../common/FriendAvatar';
@@ -12,23 +13,35 @@ interface ContactListProps {
   activeContactId: number | null;
   activeView: 'contact' | 'tags';
   onSelectContact: (id: number) => void;
+  onSelectGroupChat: (conversationId: number) => void;
   onSelectTagsView: () => void;
   width: number;
 }
 
-export const dummyGroups = [
-  { id: 201, name: '前端开发交流群', avatarColor: 'bg-indigo-500' },
-  { id: 202, name: '项目讨论组', avatarColor: 'bg-teal-500' },
-  { id: 203, name: '周末篮球俱乐部', avatarColor: 'bg-orange-500' },
-];
-
-export const ContactList: React.FC<ContactListProps> = ({ activeContactId, activeView, onSelectContact, onSelectTagsView, width }) => {
+export const ContactList: React.FC<ContactListProps> = ({ activeContactId, activeView, onSelectContact, onSelectGroupChat, onSelectTagsView, width }) => {
   const { friendRequests, groupRequests } = useChatContext();
   const { friends, loading, forceRefresh } = useContactContext();
   const [activeTab, setActiveTab] = useState<'friends' | 'groups'>('friends');
   const [searchTerm, setSearchTerm] = useState('');
   const [isAddFriendModalOpen, setIsAddFriendModalOpen] = useState(false);
   const [isRequestsModalOpen, setIsRequestsModalOpen] = useState(false);
+  const [groups, setGroups] = useState<JoinedGroupItem[]>([]);
+  const [loadingGroups, setLoadingGroups] = useState(false);
+
+  React.useEffect(() => {
+    if (activeTab === 'groups') {
+      setLoadingGroups(true);
+      getJoinedGroups().then(res => {
+        if (res.code === 200 && res.data) {
+          setGroups(res.data);
+        }
+      }).catch(err => {
+        console.error("Failed to load joined groups", err);
+      }).finally(() => {
+        setLoadingGroups(false);
+      });
+    }
+  }, [activeTab]);
 
   const handleModalClose = () => {
     setIsAddFriendModalOpen(false);
@@ -39,8 +52,8 @@ export const ContactList: React.FC<ContactListProps> = ({ activeContactId, activ
     friend.username.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const filteredGroups = dummyGroups.filter(group =>
-    group.name.toLowerCase().includes(searchTerm.toLowerCase())
+  const filteredGroups = groups.filter(group =>
+    group.conversation_name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const currentList = activeTab === 'friends' ? filteredFriends : filteredGroups;
@@ -131,22 +144,28 @@ export const ContactList: React.FC<ContactListProps> = ({ activeContactId, activ
           {activeTab === 'friends' ? 'My Friends' : 'My Groups'}
         </div>
 
-        {loading && activeTab === 'friends' && friends.length === 0 ? (
+        {(loading && activeTab === 'friends' && friends.length === 0) || (loadingGroups && activeTab === 'groups' && groups.length === 0) ? (
           <div className="p-4 text-center text-sm text-secondary">Loading...</div>
         ) : (
           currentList.map((contact) => {
             const isGroup = activeTab === 'groups';
-            const groupContact = contact as typeof dummyGroups[0];
+            const groupContact = contact as JoinedGroupItem;
             const friendContact = contact as FriendInfo;
-            const id = isGroup ? groupContact.id : friendContact.user_id;
-            const name = isGroup ? groupContact.name : friendContact.username;
-            const avatarUrl = isGroup ? null : friendContact.avatar_url;
-            const avatarColor = isGroup ? groupContact.avatarColor : 'bg-blue-400';
+            const id = isGroup ? groupContact.conversation_id : friendContact.user_id;
+            const name = isGroup ? groupContact.conversation_name : friendContact.username;
+            const avatarUrl = isGroup ? groupContact.avatar_url || null : friendContact.avatar_url || null;
+            const avatarColor = 'bg-blue-400';
 
             return (
               <div
                 key={id}
-                onClick={() => onSelectContact(id)}
+                onClick={() => {
+                  if (isGroup) {
+                    onSelectGroupChat(id);
+                  } else {
+                    onSelectContact(id);
+                  }
+                }}
                 className={`${styles.contactItem} ${activeContactId === id && activeView === 'contact' ? styles.contactItemActive : ''}`}
               >
                 {/* Avatar */}
