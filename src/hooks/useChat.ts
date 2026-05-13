@@ -12,6 +12,8 @@ export interface LocalMessage extends Partial<HistoryMessageItem> {
   msg_content: string;
   create_time: string;
   sender_id: number;
+  sender_name?: string;
+  quote_sender_name?: string;
   extra?: Record<string, any>;
 }
 
@@ -74,9 +76,13 @@ export const useChat = (currentUserId: number) => {
       const newDict = { ...prev };
       let changed = false;
       messages.forEach(msg => {
-        if (msg.msg_id && !newDict[msg.msg_id]) {
-          newDict[msg.msg_id] = msg as LocalMessage;
-          changed = true;
+        if (msg.msg_id) {
+          const existing = newDict[msg.msg_id];
+          // 👈 核心修改：如果字典里没这条消息，或者旧消息没名字但新消息有，就执行更新！
+          if (!existing || (!existing.sender_name && msg.sender_name)) {
+            newDict[msg.msg_id] = msg as LocalMessage;
+            changed = true;
+          }
         }
       });
       return changed ? newDict : prev;
@@ -94,16 +100,14 @@ export const useChat = (currentUserId: number) => {
 
     if (missingIds.length === 0) return;
 
-    await Promise.all(missingIds.map(async (id) => {
+    for (const id of missingIds) {
       try {
-        // 【修正 1】：必须传入真实的 conversationId，否则后端会报权限错误
         const res = await chatApi.getMessageHistory({ 
           conversation_id: conversationId, 
-          start_msg_id: id + 1, // 因为后端的游标是 < msg_id，所以查特定 id 需要 +1
+          start_msg_id: id + 1, 
           limit: 1 
         });
 
-        // 【修正 2】：使用与 loadMessageHistory 相同的安全解包逻辑
         const historyArray = Array.isArray(res) ? res : ((res as any).data || []);
         const msg = historyArray[0];
 
@@ -113,7 +117,7 @@ export const useChat = (currentUserId: number) => {
       } catch (e) {
         console.warn(`无法补全消息内容 ${id}`, e);
       }
-    }));
+    }
   }, [quotedMessagesMap, updateQuoteDict]);
 
   // Store messages by conversation_id, lazily initialized from localStorage
@@ -302,8 +306,9 @@ export const useChat = (currentUserId: number) => {
       const res = await chatApi.sendMessage(reqPayload);
 
       if ((res.code === 0 || res.code === 200) && res.data) {
-        const { msg_id, server_time } = res.data;
-        const finalMessage = { ...optimisticMessage, msg_id, create_time: server_time };
+        const { msg_id, server_time, sender_name, quote_sender_name } = res.data;
+        const finalMessage = { ...optimisticMessage, msg_id, create_time: server_time, sender_name,
+            quote_sender_name };
 
         let isDuplicate = false; // 设置一个局部信号枪
 
@@ -505,6 +510,8 @@ export const useChat = (currentUserId: number) => {
       create_time: msgData.create_time,
       sender_id: msgData.sender_id,
       quote_msg_id: msgData.quote_message_id,
+      sender_name: msgData.sender_name, 
+      quote_sender_name: msgData.quote_sender_name,
       isSending: false,
       isFailed: false,
     };

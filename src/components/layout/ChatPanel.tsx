@@ -40,6 +40,7 @@ export const ChatPanel: React.FC<ChatPanelProps & { activeChatName?: string; act
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const fetchedChatIdsRef = useRef<Set<number>>(new Set());
 
   const { xPos: inputXPos, yPos: inputYPos, showMenu: showInputMenu, setShowMenu: setShowInputMenu, handleContextMenu: handleInputContextMenu } = useContextMenu();
   const { xPos: msgXPos, yPos: msgYPos, showMenu: showMsgMenu, setShowMenu: setShowMsgMenu, handleContextMenu: handleMsgContextMenu } = useContextMenu();
@@ -329,9 +330,12 @@ export const ChatPanel: React.FC<ChatPanelProps & { activeChatName?: string; act
     const conv = conversations.find(c => c.conversation_id === activeChatId);
     if (conv?.status === 'abnormal') return;
 
-    // Only fetch if we don't have messages yet
-    if (!messagesMap[activeChatId] || messagesMap[activeChatId].length === 0) {
+    // 检查是否已经请求过，或者已经有消息了
+    const hasMessages = messagesMap[activeChatId] && messagesMap[activeChatId].length > 0;
+    if (!hasMessages && !fetchedChatIdsRef.current.has(activeChatId)) {
       setIsLoadingHistory(true);
+      fetchedChatIdsRef.current.add(activeChatId); // 记录一下，我已经请求过了！
+      
       loadMessageHistory(activeChatId, undefined, 30).then((data) => {
         setHasMoreHistory(data.length === 30);
         setIsLoadingHistory(false);
@@ -340,7 +344,7 @@ export const ChatPanel: React.FC<ChatPanelProps & { activeChatName?: string; act
         setIsLoadingHistory(false);
       });
     }
-  }, [activeChatId, loadMessageHistory, messagesMap]); // Only run when chat ID changes
+  }, [activeChatId, loadMessageHistory, conversations]);
 
   // Scroll down smoothly on new messages if at bottom
   useEffect(() => {
@@ -779,10 +783,7 @@ export const ChatPanel: React.FC<ChatPanelProps & { activeChatName?: string; act
                         <span className="text-[10px] text-secondary whitespace-nowrap overflow-hidden text-ellipsis">
                           {msg.sender_id === -1 ? "系统通知" :
                           msg.sender_id === -2 ? "群助手" :
-                          (isGroupChat ?
-                            (friends.find(f => f.user_id === msg.sender_id)?.username || `User ${msg.sender_id}`)
-                            : (activeChatName || msg.sender_id)
-                          )}
+                          (msg.sender_name || (isGroupChat ? `User ${msg.sender_id}` : (activeChatName || `User ${msg.sender_id}`)))}
                         </span>
                         {isGroupChat && groupMembers && (
                           (() => {
@@ -811,7 +812,7 @@ export const ChatPanel: React.FC<ChatPanelProps & { activeChatName?: string; act
                               return <img src={formatAvatarUrl(senderFriend.avatar_url)!} alt="avatar" className="w-full h-full object-cover" />
                             }
                             // 如果群友没头像或不是好友，用名字首字母兜底
-                            const fallbackName = senderFriend ? senderFriend.username : `U`;
+                            const fallbackName = msg.sender_name || 'U';
                             return <span className="text-gray-500 font-bold text-lg opacity-50">{fallbackName.charAt(0).toUpperCase()}</span>
                           })()
                         ) : activeChatAvatar ? (
@@ -852,7 +853,15 @@ export const ChatPanel: React.FC<ChatPanelProps & { activeChatName?: string; act
                               /* Ignored intentionally */
                             }
                           }
-                          return `${quotedMsg.sender_id === Number(currentUserId) ? '我' : (activeChatName || quotedMsg.sender_id)}: ${qContent}`;
+
+                          let senderName = '';
+                          if (quotedMsg.sender_id === Number(currentUserId)) {
+                            senderName = '我';
+                          } else {
+                            // 优先取当前消息(msg)带过来的“被引用者名字”，如果没有，再取原消息(quotedMsg)的发送者名字
+                            senderName = msg.quote_sender_name || quotedMsg.sender_name || `User ${quotedMsg.sender_id}`;
+                          }
+                          return `${senderName}: ${qContent}`;
                         })()}
                       </div>
                     )}
