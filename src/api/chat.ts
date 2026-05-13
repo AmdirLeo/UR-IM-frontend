@@ -20,6 +20,8 @@ export interface SendMessageResponse {
     msg_id: number;
     server_time: string; // ISO 8601 string
     local_id: string;
+    sender_name?: string;
+    quote_sender_name?: string;
   };
 }
 
@@ -75,6 +77,8 @@ export interface HistoryMessageItem {
   create_time: string; // ISO 8601 string
   quote_msg_id?: number;
   quote_num: number;
+  sender_name?: string;
+  quote_sender_name?: string;
 }
 
 export type GetHistoryResponse = HistoryMessageItem[];

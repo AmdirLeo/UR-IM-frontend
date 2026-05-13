@@ -212,8 +212,12 @@ export const CreateGroupModal: React.FC<CreateGroupModalProps> = ({ isOpen, onCl
               onChange={(e) => setGroupName(e.target.value)}
               placeholder="请输入群聊名称"
               className="w-full bg-primary border border-primary text-primary rounded-md px-3 py-2 focus:outline-none focus:border-green-500 transition-colors"
-              maxLength={100}
+              maxLength={20}
             />
+            {/* 👇 实时字数提示 */}
+            <span className="absolute right-2 top-2.5 text-xs text-gray-400">
+              {groupName.length}/20
+            </span>
           </div>
 
           <div className="mb-2 flex justify-between items-end">
