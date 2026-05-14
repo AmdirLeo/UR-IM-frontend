@@ -13,7 +13,7 @@ export interface GroupContextForUserModal {
 
 interface UserInfoModalProps {
   groupContext?: GroupContextForUserModal;
-  onGroupActionSuccess?: () => void;
+  onGroupActionSuccess?: (action?: 'kick' | 'admin' | 'owner', userId?: number, role?: string) => void;
   userId: number;
   isOpen: boolean;
   onClose: () => void;
@@ -22,7 +22,7 @@ interface UserInfoModalProps {
 export const UserInfoModal: React.FC<UserInfoModalProps> = ({ userId, isOpen, onClose, groupContext, onGroupActionSuccess }) => {
   const [loading, setLoading] = useState(false);
   const [userInfo, setUserInfo] = useState<any>(null);
-  const { loadMessageHistory } = useChatContext();
+  const { loadMessageHistory, loadConversations } = useChatContext();
 
   useEffect(() => {
     if (isOpen && userId) {
@@ -68,16 +68,29 @@ export const UserInfoModal: React.FC<UserInfoModalProps> = ({ userId, isOpen, on
         role
       });
       if (res.code === 200) {
-        onGroupActionSuccess?.();
+        onGroupActionSuccess?.('admin', userId, role);
         onClose();
-
         loadMessageHistory(groupContext.conversationId, undefined, 5);
       } else {
-        alert(res.msg || '操作失败');
+        alert(res.msg || '操作失败，正在同步最新状态');
+        loadConversations();
+        onGroupActionSuccess?.();
+        onClose();
       }
-    } catch (e) {
+    } catch (e: any) {
       console.error(e);
-      alert('操作失败');
+      const errData = e.response?.data || e;
+      const errCode = errData?.code || e.response?.status || e.status;
+      const errMsg = errData?.msg || '操作失败，数据已过期';
+
+      if (errCode === 403) {
+        alert(errMsg);
+        loadConversations();
+        onGroupActionSuccess?.();
+        onClose();
+      } else {
+        alert(errMsg);
+      }
     }
   };
 
@@ -90,14 +103,28 @@ export const UserInfoModal: React.FC<UserInfoModalProps> = ({ userId, isOpen, on
         user_id: userId
       });
       if (res.code === 200) {
+        onGroupActionSuccess?.('kick', userId);
+        onClose();
+      } else {
+        alert(res.msg || '操作失败，正在同步最新状态');
+        loadConversations();
+        onGroupActionSuccess?.();
+        onClose();
+      }
+    } catch (e: any) {
+      console.error(e);
+      const errData = e.response?.data || e;
+      const errCode = errData?.code || e.response?.status || e.status;
+      const errMsg = errData?.msg || '操作失败，数据已过期';
+
+      if (errCode === 403) {
+        alert(errMsg);
+        loadConversations();
         onGroupActionSuccess?.();
         onClose();
       } else {
-        alert(res.msg || '操作失败');
+        alert(errMsg);
       }
-    } catch (e) {
-      console.error(e);
-      alert('操作失败');
     }
   };
 
@@ -112,16 +139,30 @@ export const UserInfoModal: React.FC<UserInfoModalProps> = ({ userId, isOpen, on
         role: 'owner'
       });
       if (res.code === 200) {
-        onGroupActionSuccess?.();
+        onGroupActionSuccess?.('owner', userId);
         onClose();
         // 重新拉取最新的系统消息，让屏幕上立刻显示“xx将xx设为群主”
         loadMessageHistory(groupContext.conversationId, undefined, 5);
       } else {
-        alert(res.msg || '转让失败');
+        alert(res.msg || '转让失败，正在同步最新状态');
+        loadConversations();
+        onGroupActionSuccess?.();
+        onClose();
       }
-    } catch (e) {
+    } catch (e: any) {
       console.error(e);
-      alert('转让失败，请重试');
+      const errData = e.response?.data || e;
+      const errCode = errData?.code || e.response?.status || e.status;
+      const errMsg = errData?.msg || '操作失败，数据已过期';
+
+      if (errCode === 403) {
+        alert(errMsg);
+        loadConversations();
+        onGroupActionSuccess?.();
+        onClose();
+      } else {
+        alert(errMsg);
+      }
     }
   };
 
