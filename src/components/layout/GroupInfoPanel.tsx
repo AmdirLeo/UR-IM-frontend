@@ -76,8 +76,21 @@ export const GroupInfoPanel: React.FC<GroupInfoPanelProps> = ({
           setMembers([]);
         }
       }
-    } catch (e) {
+    } catch (e: any) {
       console.error("Failed to load group details:", e);
+      // 👇 核心修复：一旦拉取列表报 403，立刻消灭幽灵数据
+      const errData = e.response?.data || e;
+      const errCode = errData?.code || e.response?.status || e.status;
+      
+      if (errCode === 403) {
+        alert("群信息已失效，您可能已被移出群聊");
+        setMembers([]); // 清空幽灵列表
+        onClose();      // 强制关闭侧边栏
+        // 通知左侧会话列表也把这个群的状态刷新掉
+        window.dispatchEvent(new CustomEvent('remote_group_removed', { detail: { conversation_id: conversationId } }));
+      } else {
+        setMembers([]); // 其他网络错误也兜底清空
+      }
     } finally {
       setLoading(false);
     }
@@ -286,8 +299,24 @@ export const GroupInfoPanel: React.FC<GroupInfoPanelProps> = ({
               targetRole: members.find(m => m.user_id === selectedMemberId)?.role || 'member'
             } : undefined
           }
-          onGroupActionSuccess={() => {
-            fetchData();
+          onGroupActionSuccess={(action?: 'kick' | 'admin' | 'owner', userId?: number, role?: string) => {
+            if (!action) {
+              fetchData();
+            } else {
+              if (action === 'kick') {
+                setMembers(prev => prev.filter(m => m.user_id !== userId));
+                setGroupInfo(prev => prev ? { ...prev, member_count: Math.max(0, prev.member_count - 1) } : prev);
+              } else if (action === 'admin') {
+                setMembers(prev => prev.map(m => m.user_id === userId ? { ...m, role: role! } : m));
+              } else if (action === 'owner') {
+                setMembers(prev => prev.map(m => {
+                  if (m.user_id === userId) return { ...m, role: 'owner' };
+                  if (m.role === 'owner') return { ...m, role: 'member' };
+                  return m;
+                }));
+                setGroupInfo(prev => prev ? { ...prev, my_role: 'member' } : prev);
+              }
+            }
           }}
         />
       )}
