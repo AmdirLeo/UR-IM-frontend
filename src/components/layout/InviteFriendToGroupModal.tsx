@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, Search } from 'lucide-react';
 import { useContactContext } from '../../context/ContactContext';
-import { inviteToGroup } from '../../api/group';
+import { inviteToGroup, GroupMember } from '../../api/group';
 import { FriendAvatar } from '../common/FriendAvatar';
 import styles from './AddFriendsToTagModal.module.css';
 
@@ -9,9 +9,10 @@ interface InviteFriendToGroupModalProps {
   isOpen: boolean;
   onClose: () => void;
   conversationId: number;
+  existingMembers?: GroupMember[];
 }
 
-export const InviteFriendToGroupModal: React.FC<InviteFriendToGroupModalProps> = ({ isOpen, onClose, conversationId }) => {
+export const InviteFriendToGroupModal: React.FC<InviteFriendToGroupModalProps> = ({ isOpen, onClose, conversationId, existingMembers = [] }) => {
   const { friends } = useContactContext();
   const [selectedFriendIds, setSelectedFriendIds] = useState<number[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -31,10 +32,10 @@ export const InviteFriendToGroupModal: React.FC<InviteFriendToGroupModalProps> =
 
   if (!isOpen) return null;
 
-  // Ideally, we should filter out friends that are already in the group,
-  // but for now we list all friends. The backend will reject if already in group.
+  const existingMemberIds = new Set(existingMembers.map(m => m.user_id));
+
   const filteredFriends = friends.filter(friend =>
-    friend.username.toLowerCase().includes(searchTerm.toLowerCase())
+    !existingMemberIds.has(friend.user_id) && friend.username.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const toggleFriendSelection = (id: number) => {

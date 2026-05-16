@@ -325,6 +325,7 @@ export const GroupInfoPanel: React.FC<GroupInfoPanelProps> = ({
         isOpen={isInviteModalOpen}
         onClose={() => setIsInviteModalOpen(false)}
         conversationId={conversationId}
+        existingMembers={members}
       />
     </div>
 
