@@ -704,6 +704,10 @@ export const ChatPanel: React.FC<ChatPanelProps & { activeChatName?: string; act
           </div>
         ) : (
           activeMessages.map((msg, idx) => {
+            if (msg.sender_id === -2) {
+              return null;
+            }
+
             const prevMsg = activeMessages[idx - 1];
 
             // Ensure we use the server_time (create_time) or fallback to local generation time
@@ -811,9 +815,13 @@ export const ChatPanel: React.FC<ChatPanelProps & { activeChatName?: string; act
                             if (senderFriend && senderFriend.avatar_url) {
                               return <img src={formatAvatarUrl(senderFriend.avatar_url)!} alt="avatar" className="w-full h-full object-cover" />
                             }
-                            // 如果群友没头像或不是好友，用名字首字母兜底
-                            const fallbackName = msg.sender_name || 'U';
-                            return <span className="text-gray-500 font-bold text-lg opacity-50">{fallbackName.charAt(0).toUpperCase()}</span>
+                            // 如果好友列表里没有，去群成员列表里找
+                            const senderGroupMember = groupMembers.find(m => m.user_id === msg.sender_id);
+                            if (senderGroupMember && senderGroupMember.avatar_url) {
+                              return <img src={formatAvatarUrl(senderGroupMember.avatar_url)!} alt="avatar" className="w-full h-full object-cover" />
+                            }
+                            // 如果群友没头像或不是好友或已退群注销，显示默认头像
+                            return <img src={`https://api.dicebear.com/7.x/bottts/svg?seed=User${msg.sender_id}`} alt="avatar" className="w-full h-full object-cover" />
                           })()
                         ) : activeChatAvatar ? (
                           // --- 【单聊逻辑】：使用传进来的对方头像 ---
